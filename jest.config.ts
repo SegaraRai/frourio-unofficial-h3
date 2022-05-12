@@ -6,10 +6,7 @@ const config: Config.InitialOptions = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   globals: { Blob: {}, 'ts-jest': {} },
-  moduleNameMapper: {
-    ...pathsToModuleNameMapper(compilerOptions.paths, { prefix: '<rootDir>/' }),
-    listhen: 'listhen/dist/index.cjs'
-  },
+  moduleNameMapper: pathsToModuleNameMapper(compilerOptions.paths, { prefix: '<rootDir>/' }),
   coveragePathIgnorePatterns: ['\\$api.ts', 'dist']
 }
 
