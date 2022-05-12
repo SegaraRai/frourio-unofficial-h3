@@ -11,8 +11,8 @@ import api from '../servers/all/api/$api'
 import frourio from '../servers/all/$server'
 import controller from '../servers/all/api/controller'
 
-const port = 11111
-const subPort = 22222
+const port = 23201
+const subPort = 23202
 const baseURL = `http://localhost:${port}`
 const subBasePath = '/api'
 const subBaseURL = `http://localhost:${subPort}${subBasePath}`
