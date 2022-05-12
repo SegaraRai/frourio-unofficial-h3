@@ -1,4 +1,4 @@
-import { defineHooks } from './$relay'
+import { defineHooks, useContext } from './$relay'
 
 export type AdditionalRequest = {
   user: {
@@ -11,7 +11,8 @@ export type AdditionalRequest = {
 export default defineHooks(() => ({
   onRequest: (req, _, done) => {
     console.log('Added user')
-    req.user = { id: 1, name: 'user name', role: 'admin' }
+    const ctx = useContext(req)
+    ctx.user = { id: 1, name: 'user name', role: 'admin' }
     done()
   }
 }))
