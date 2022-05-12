@@ -30,7 +30,7 @@
   "scripts": {
     "dev": "npm run build && cd servers && aspida && node build.js",
     "build": "npm run rimraf -- dist && tsc -p tsconfig.build.json",
-    "rimraf": "node -e \"require('fs').rmdirSync(process.argv[1], { recursive: true })\"",
+    "rimraf": "node -e \"fs.rmSync(process.argv[1], { force: true, recursive: true })\"",
     "lint": "eslint --ext .js,.ts . && prettier --check \"./**/*.ts\"",
     "lint:fix": "eslint --ext .js,.ts . --fix && prettier --write \"./**/*.ts\"",
     "test": "jest",
