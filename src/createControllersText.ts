@@ -439,7 +439,7 @@ export default (appDir: string, project: string) => {
     consts: `${hooksPaths
       .map((_, i) => `  const hooks${i} = hooksFn${i}(router)\n`)
       .join('')}${controllers
-      .map(([_, hasHooks], i) =>
+      .map(([, hasHooks], i) =>
         hasHooks ? `  const ctrlHooks${i} = ctrlHooksFn${i}(router)\n` : ''
       )
       .join('')}${controllers
