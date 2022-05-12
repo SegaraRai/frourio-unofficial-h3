@@ -1,12 +1,15 @@
 import type { Config } from '@jest/types'
-import { pathsToModuleNameMapper } from 'ts-jest/utils'
+import { pathsToModuleNameMapper } from 'ts-jest'
 import { compilerOptions } from './tsconfig.json'
 
 const config: Config.InitialOptions = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   globals: { Blob: {}, 'ts-jest': {} },
-  moduleNameMapper: pathsToModuleNameMapper(compilerOptions.paths, { prefix: '<rootDir>/' }),
+  moduleNameMapper: {
+    ...pathsToModuleNameMapper(compilerOptions.paths, { prefix: '<rootDir>/' }),
+    listhen: 'listhen/dist/index.cjs'
+  },
   coveragePathIgnorePatterns: ['\\$api.ts', 'dist']
 }
 

@@ -1,73 +1,241 @@
-import type { LowerHttpMethod, AspidaMethods, HttpStatusOk, AspidaMethodParams } from 'aspida'
-import controllerFn0, { responseSchema as responseSchemaFn0 } from './api/controller'
+import type { LowerHttpMethod } from 'aspida'
+import {
+  CompatibilityEventHandler,
+  H3Error,
+  IncomingMessage,
+  Router,
+  ServerResponse,
+  callHandler,
+  createError,
+  useBody,
+  useQuery
+} from 'h3'
 
-import type { FastifyInstance, RouteHandlerMethod } from 'fastify'
+import { Hooks, ServerMethods, symContext } from './$common'
 
-export type FrourioOptions = {
+import controllerFn0 from './api/controller'
+
+export type FrourioCreateError = (status: number, data: string | object) => H3Error
+
+export interface FrourioOptions {
   basePath?: string | undefined
+  createError?: FrourioCreateError
 }
 
-type HttpStatusNoOk = 301 | 302 | 400 | 401 | 402 | 403 | 404 | 405 | 406 | 409 | 500 | 501 | 502 | 503 | 504 | 505
-
-type PartiallyPartial<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
-
-type BaseResponse<T, U, V> = {
-  status: V extends number ? V : HttpStatusOk
-  body: T
-  headers: U
+type ZodSchema = {
+  parse: <T>(value: T) => T
+  parseAsync: <T>(value: T) => Promise<T>
 }
 
-type ServerResponse<K extends AspidaMethodParams> =
-  | (K extends { resBody: K['resBody']; resHeaders: K['resHeaders'] }
-  ? BaseResponse<K['resBody'], K['resHeaders'], K['status']>
-  : K extends { resBody: K['resBody'] }
-  ? PartiallyPartial<BaseResponse<K['resBody'], K['resHeaders'], K['status']>, 'headers'>
-  : K extends { resHeaders: K['resHeaders'] }
-  ? PartiallyPartial<BaseResponse<K['resBody'], K['resHeaders'], K['status']>, 'body'>
-  : PartiallyPartial<
-      BaseResponse<K['resBody'], K['resHeaders'], K['status']>,
-      'body' | 'headers'
-    >)
-  | PartiallyPartial<BaseResponse<any, any, HttpStatusNoOk>, 'body' | 'headers'>
-
-type RequestParams<T extends AspidaMethodParams> = Pick<{
-  query: T['query']
-  body: T['reqBody']
-  headers: T['reqHeaders']
-}, {
-  query: Required<T>['query'] extends {} | null ? 'query' : never
-  body: Required<T>['reqBody'] extends {} | null ? 'body' : never
-  headers: Required<T>['reqHeaders'] extends {} | null ? 'headers' : never
-}['query' | 'body' | 'headers']>
-
-export type ServerMethods<T extends AspidaMethods, U extends Record<string, any> = {}> = {
-  [K in keyof T]: (
-    req: RequestParams<T[K]> & U
-  ) => ServerResponse<T[K]> | Promise<ServerResponse<T[K]>>
+interface Schemas {
+  body?: ZodSchema | undefined | null
+  header?: ZodSchema | undefined | null
+  query?: ZodSchema | undefined | null
 }
 
-const methodToHandler = (
-  methodCallback: ServerMethods<any, any>[LowerHttpMethod]
-): RouteHandlerMethod => (req, reply) => {
-  const data = methodCallback(req as any) as any
-
-  if (data.headers) reply.headers(data.headers)
-
-  reply.code(data.status).send(data.body)
+export function defaultCreateError(status: number, data: string | object): H3Error {
+  return createError({
+    statusCode: status,
+    data
+  })
 }
 
-export default (fastify: FastifyInstance, options: FrourioOptions = {}) => {
-  const basePath = options.basePath ?? ''
-  const responseSchema0 = responseSchemaFn0()
-  const controller0 = controllerFn0(fastify)
-
-  fastify.get(
-    basePath || '/',
-    {
-      schema: { response: responseSchema0.get }
-    },
-    methodToHandler(controller0.get)
+function hasBody(req: IncomingMessage): boolean {
+  return (
+    req.method === 'POST' ||
+    req.method === 'PATCH' ||
+    req.method === 'PUT' ||
+    req.method === 'DELETE'
   )
+}
 
-  return fastify
+function identity<T>(value: T): T {
+  return value
+}
+
+function toBoolean(str: string): boolean | undefined {
+  return {
+    true: true,
+    false: false,
+    '1': true,
+    '0': false
+  }[str]
+}
+
+function toInteger(str: string): number | undefined {
+  if (!/^\d+$/.test(str)) {
+    return undefined
+  }
+  const value = parseInt(str, 10)
+  if (!isFinite(value) || value < 0 || value > Number.MAX_SAFE_INTEGER) {
+    return undefined
+  }
+  return value
+}
+
+function toArray<T>(value: T | readonly T[]): readonly T[]
+function toArray<T>(value: T | T[]): T[]
+function toArray<T>(value: T | readonly T[] | T[]): readonly T[] | T[] {
+  return Array.isArray(value) ? (value as any) : [value]
+}
+
+function mergeHooks(hooks: readonly Hooks[]) {
+  return {
+    onRequest: hooks.flatMap(hook => toArray(hook.onRequest || [])),
+    preHandler: hooks.flatMap(hook => toArray(hook.preHandler || []))
+  }
+}
+
+function castRouteParams(
+  params: Record<string, string>,
+  intParams: readonly string[],
+  createError: FrourioCreateError
+): Record<string, string | number> {
+  const result: Record<string, string | number> = { ...params }
+  for (const key of intParams) {
+    const value = params[key]
+    if (value == null) {
+      throw createError(400, `Missing required route parameter ${key}`)
+    }
+    const intValue = toInteger(value)
+    if (intValue == null) {
+      throw createError(400, `Invalid type of route parameter ${key}`)
+    }
+    result[key] = intValue
+  }
+  return result
+}
+
+type ParamTypeSpec = [key: string, type: 'b' | 'i' | 's', optional: boolean, array: boolean]
+
+function castQueryParams(
+  params: Record<string, string | string[] | undefined>,
+  paramTypes: readonly ParamTypeSpec[],
+  isOptional: boolean,
+  createError: FrourioCreateError
+): Record<string, string | number | boolean | string[] | number[] | boolean[]> {
+  if (isOptional && Object.keys(params).length === 0) {
+    return {}
+  }
+  // NOTE: paramTypes has all parameters so we don't have to clone params here
+  const result: Record<string, string | number | boolean | string[] | number[] | boolean[]> = {}
+  for (const [key, type, optional, array] of paramTypes) {
+    const castFn =
+      type === 'b' ? toBoolean : type === 'i' ? toInteger : (identity as (str: string) => string)
+    if (array) {
+      const arrayKey = `${key}[]`
+      const value = params[arrayKey] || params[key]
+      // delete result[key]
+      // delete result[arrayKey]
+      if (value == null) {
+        if (optional) {
+          continue
+        }
+        result[key] = []
+      } else {
+        const castedValues = toArray(value).map<any>(castFn)
+        if (castedValues.some(v => v == null)) {
+          throw createError(400, `Invalid type of query parameter ${key}`)
+        }
+        result[key] = castedValues
+      }
+    } else {
+      const value = params[key]
+      // delete result[key]
+      if (value == null) {
+        if (optional) {
+          continue
+        }
+        throw createError(400, `Missing required query parameter ${key}`)
+      }
+      const castedValue = typeof value === 'string' ? castFn(value) : null
+      if (castedValue == null) {
+        throw createError(400, `Invalid type of query parameter ${key}`)
+      }
+      result[key] = castedValue
+    }
+  }
+  return result
+}
+
+function methodToHandlers(
+  methodCallback: ServerMethods<any, any>[LowerHttpMethod],
+  hooks: readonly Hooks[],
+  schemas: Schemas,
+  intRouteParams: readonly string[],
+  queryParamTypes: readonly ParamTypeSpec[],
+  isQueryOptional: boolean,
+  createError: FrourioCreateError
+): CompatibilityEventHandler[] {
+  const mergedHooks = mergeHooks(hooks)
+  return [
+    (req: IncomingMessage) => {
+      ;(req as any)[symContext] = {
+        params: castRouteParams(req.context.params || {}, intRouteParams, createError)
+      }
+    },
+    ...mergedHooks.onRequest,
+    async (req: IncomingMessage) => {
+      let parsing = ''
+      try {
+        // handle query first to throw exceptions early
+        parsing = 'query'
+        const query = castQueryParams(useQuery(req), queryParamTypes, isQueryOptional, createError)
+        ;(req as any)[symContext].query = schemas.query
+          ? await schemas.query.parseAsync(query)
+          : query
+
+        if (hasBody(req)) {
+          parsing = 'body'
+          const body = await useBody(req)
+          ;(req as any)[symContext].body = schemas.body ? await schemas.body.parseAsync(body) : body
+        }
+      } catch (error: unknown) {
+        throw error
+      }
+    },
+    ...mergedHooks.preHandler,
+    async (req: IncomingMessage, res: ServerResponse) => {
+      const context = (req as any)[symContext]
+      const data = await methodCallback(context, req)
+      const isText = typeof data.body === 'string'
+      res.setHeader(
+        'Content-Type',
+        isText ? 'text/plain; charset=utf-8' : 'application/json; charset=utf-8'
+      )
+      if (data.headers) {
+        for (const [key, value] of Object.entries(data.headers)) {
+          res.setHeader(key, value as string)
+        }
+      }
+      res.statusCode = data.status
+      res.end(isText ? data.body : JSON.stringify(data.body))
+    }
+  ]
+}
+
+function mergeHandlers(handlers: CompatibilityEventHandler[]): CompatibilityEventHandler {
+  return async (req: IncomingMessage, res: ServerResponse) => {
+    for (const handler of handlers) {
+      const data = await callHandler(handler, req, res)
+      if (data) {
+        return data
+      }
+    }
+  }
+}
+
+function methodToHandler(...args: Parameters<typeof methodToHandlers>): CompatibilityEventHandler {
+  return mergeHandlers(methodToHandlers(...args))
+}
+
+export default (router: Router, options: FrourioOptions = {}) => {
+  const basePath = options.basePath ?? ''
+  const createError = options.createError ?? defaultCreateError
+
+  const controller0 = controllerFn0(router)
+
+  /* prettier-ignore */ router.get(basePath || '/', methodToHandler(controller0.get, [], {}, [], [], false, createError))
+
+  return router
 }

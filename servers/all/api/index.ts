@@ -1,16 +1,16 @@
-import { Query, Body } from 'validators'
+import type { zBody, zQuery } from 'schemas'
+import type { z } from 'zod'
 
 export type Methods = {
   get: {
-    query?: Query
+    query?: z.infer<typeof zQuery>
     status: 200
-    resBody?: Query
+    resBody?: z.infer<typeof zQuery>
   }
 
   post: {
-    query: Query
-    reqFormat: FormData
-    reqBody: Body
+    query: z.infer<typeof zQuery>
+    reqBody: z.infer<typeof zBody>
     status: 201
     resBody: {
       id: number
