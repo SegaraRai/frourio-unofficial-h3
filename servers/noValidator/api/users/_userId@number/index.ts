@@ -1,4 +1,4 @@
-import { UserInfo } from '../../../validators'
+import type { UserInfo } from '../../../schemas'
 
 export type Methods = {
   get: {

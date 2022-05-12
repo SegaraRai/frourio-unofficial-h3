@@ -1,19 +1,22 @@
 {
-  "name": "frourio",
+  "name": "frourio-unofficial-h3",
   "version": "0.26.0",
-  "description": "Fast and type-safe full stack framework, for TypeScript",
-  "author": "Solufa <solufa2020@gmail.com>",
+  "description": "Unofficial port of frourio to h3 with zod",
+  "authors": [
+    "Solufa <solufa2020@gmail.com>",
+    "SegaraRai"
+  ],
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": "bin/index.js",
-  "homepage": "https://frourio.io",
+  "homepage": "https://github.com/SegaraRai/frourio-h3",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/frouriojs/frourio.git"
+    "url": "git+https://github.com/SegaraRai/frourio-h3.git"
   },
   "bugs": {
-    "url": "https://github.com/frouriojs/frourio/issues"
+    "url": "https://github.com/SegaraRai/frourio-h3/issues"
   },
   "files": [
     "dist"
@@ -21,7 +24,8 @@
   "keywords": [
     "typescript",
     "aspida",
-    "fastify"
+    "h3",
+    "zod"
   ],
   "scripts": {
     "dev": "npm run build && cd servers && aspida && node build.js",
@@ -84,7 +88,6 @@
   "devDependencies": {
     "@aspida/axios": "^1.8.0",
     "@aspida/node-fetch": "^1.8.0",
-    "@fastify/multipart": "^6.0.0",
     "@types/busboy": "^1.3.0",
     "@types/jest": "^27.4.1",
     "@types/node-fetch": "^2.5.10",
@@ -92,8 +95,6 @@
     "@typescript-eslint/eslint-plugin": "^4.28.1",
     "@typescript-eslint/parser": "^4.28.1",
     "axios": "^0.26.0",
-    "class-transformer": "^0.5.1",
-    "class-validator": "^0.13.1",
     "eslint": "^7.30.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-config-standard": "^16.0.3",
@@ -102,14 +103,16 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^5.1.0",
     "eslint-plugin-standard": "^5.0.0",
-    "fastify": "^3.18.1",
+    "h3": "^0.7.8",
     "jest": "^27.0.6",
+    "listen": "^1.0.1",
+    "listhen": "^0.2.11",
     "node-fetch": "^2.6.1",
     "prettier": "^2.3.2",
-    "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "ts-jest": "^27.1.3",
     "ts-node": "^10.0.0",
-    "typescript": "^4.6.2"
+    "typescript": "^4.6.4",
+    "zod": "^3.16.0"
   }
 }

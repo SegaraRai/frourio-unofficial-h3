@@ -1,310 +1,264 @@
 import path from 'path'
 import createControllersText from './createControllersText'
-import checkRequisites from './checkRequisites'
-
-const genHandlerText = (isAsync: boolean) => `
-const ${isAsync ? 'asyncM' : 'm'}ethodToHandler = (
-  methodCallback: ServerMethods<any, any>[LowerHttpMethod]
-): RouteHandlerMethod => ${isAsync ? 'async ' : ''}(req, reply) => {
-  const data = ${isAsync ? 'await ' : ''}methodCallback(req as any) as any
-
-  if (data.headers) reply.headers(data.headers)
-
-  reply.code(data.status).send(data.body)
-}
-`
 
 export default (input: string, project?: string) => {
-  const { imports, consts, controllers } = createControllersText(`${input}/api`, project ?? input)
-  const hasNumberTypeQuery = controllers.includes('parseNumberTypeQueryParams(')
-  const hasBooleanTypeQuery = controllers.includes('parseBooleanTypeQueryParams(')
-  const hasOptionalQuery = controllers.includes(' callParserIfExistsQuery(')
-  const hasNormalizeQuery = controllers.includes(' normalizeQuery')
-  const hasTypedParams = controllers.includes(' createTypedParamsHandler(')
-  const hasValidator = controllers.includes(' validateOrReject(')
-  const hasMultipart = controllers.includes(' formatMultipartData(')
-  const hasMethodToHandler = controllers.includes(' methodToHandler(')
-  const hasAsyncMethodToHandler = controllers.includes(' asyncMethodToHandler(')
-  const hasRouteShorthandOptions = controllers.includes(' as RouteShorthandOptions,')
-
-  checkRequisites({ hasValidator })
-
-  const headIpmorts: string[] = []
-
-  if (hasValidator) {
-    headIpmorts.push(
-      "import 'reflect-metadata'",
-      "import type { ClassTransformOptions } from 'class-transformer'",
-      "import { plainToInstance as defaultPlainToInstance } from 'class-transformer'",
-      "import type { ValidatorOptions } from 'class-validator'",
-      "import { validateOrReject as defaultValidateOrReject } from 'class-validator'"
-    )
-  }
-
-  if (hasMultipart) {
-    headIpmorts.push(
-      "import type { FastifyMultipartAttactFieldsToBodyOptions, Multipart } from '@fastify/multipart'"
-    )
-    headIpmorts.push("import multipart from '@fastify/multipart'")
-  }
-
-  if (hasValidator) {
-    headIpmorts.push("import * as Validators from './validators'")
-  }
-
-  if (hasMultipart) {
-    headIpmorts.push("import type { ReadStream } from 'fs'")
-  }
-
-  headIpmorts.push(
-    "import type { LowerHttpMethod, AspidaMethods, HttpStatusOk, AspidaMethodParams } from 'aspida'"
+  const { hasSchemas, imports, consts, controllers } = createControllersText(
+    `${input}/api`,
+    project ?? input
   )
 
   return {
-    text: `${headIpmorts.join('\n')}
+    text: `import type { LowerHttpMethod } from 'aspida'
+import {
+  CompatibilityEventHandler,
+  H3Error,
+  IncomingMessage,
+  Router,
+  ServerResponse,
+  callHandler,
+  createError,
+  useBody,
+  useQuery
+} from 'h3'
+${hasSchemas ? "import { ZodError, ZodSchema } from 'zod'" : ''}
+import { Hooks, ServerMethods, symContext } from './$common'
+
 ${imports}
-import type { FastifyInstance, RouteHandlerMethod${
-      hasNumberTypeQuery || hasBooleanTypeQuery || hasTypedParams || hasValidator || hasMultipart
-        ? ', preValidationHookHandler'
-        : ''
-    }${hasValidator ? ', FastifyRequest' : ''}${
-      hasRouteShorthandOptions ? ', RouteShorthandOptions' : ''
-    } } from 'fastify'
+export type FrourioCreateError = (status: number, data: string | object) => H3Error
 
-export type FrourioOptions = {
+export interface FrourioOptions {
   basePath?: string | undefined
-${
-  hasValidator
-    ? '  transformer?: ClassTransformOptions | undefined\n' +
-      '  validator?: ValidatorOptions | undefined\n' +
-      '  plainToInstance?: ((cls: new (...args: any[]) => object, object: unknown, options: ClassTransformOptions) => object) | undefined\n' +
-      '  validateOrReject?: ((instance: object, options: ValidatorOptions) => Promise<void>) | undefined\n'
-    : ''
-}${hasMultipart ? '  multipart?: FastifyMultipartAttactFieldsToBodyOptions | undefined\n' : ''}}
-
-type HttpStatusNoOk = 301 | 302 | 400 | 401 | 402 | 403 | 404 | 405 | 406 | 409 | 500 | 501 | 502 | 503 | 504 | 505
-
-type PartiallyPartial<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
-
-type BaseResponse<T, U, V> = {
-  status: V extends number ? V : HttpStatusOk
-  body: T
-  headers: U
-}
-
-type ServerResponse<K extends AspidaMethodParams> =
-  | (K extends { resBody: K['resBody']; resHeaders: K['resHeaders'] }
-  ? BaseResponse<K['resBody'], K['resHeaders'], K['status']>
-  : K extends { resBody: K['resBody'] }
-  ? PartiallyPartial<BaseResponse<K['resBody'], K['resHeaders'], K['status']>, 'headers'>
-  : K extends { resHeaders: K['resHeaders'] }
-  ? PartiallyPartial<BaseResponse<K['resBody'], K['resHeaders'], K['status']>, 'body'>
-  : PartiallyPartial<
-      BaseResponse<K['resBody'], K['resHeaders'], K['status']>,
-      'body' | 'headers'
-    >)
-  | PartiallyPartial<BaseResponse<any, any, HttpStatusNoOk>, 'body' | 'headers'>
-${
-  hasMultipart
-    ? `
-type BlobToFile<T extends AspidaMethodParams> = T['reqFormat'] extends FormData
-  ? {
-      [P in keyof T['reqBody']]: Required<T['reqBody']>[P] extends Blob | ReadStream
-        ? Multipart
-        : Required<T['reqBody']>[P] extends (Blob | ReadStream)[]
-        ? Multipart[]
-        : T['reqBody'][P]
-    }
-  : T['reqBody']
-`
-    : ''
-}
-type RequestParams<T extends AspidaMethodParams> = Pick<{
-  query: T['query']
-  body: ${hasMultipart ? 'BlobToFile<T>' : "T['reqBody']"}
-  headers: T['reqHeaders']
-}, {
-  query: Required<T>['query'] extends {} | null ? 'query' : never
-  body: Required<T>['reqBody'] extends {} | null ? 'body' : never
-  headers: Required<T>['reqHeaders'] extends {} | null ? 'headers' : never
-}['query' | 'body' | 'headers']>
-
-export type ServerMethods<T extends AspidaMethods, U extends Record<string, any> = {}> = {
-  [K in keyof T]: (
-    req: RequestParams<T[K]> & U
-  ) => ServerResponse<T[K]> | Promise<ServerResponse<T[K]>>
+  createError?: FrourioCreateError
 }
 ${
-  hasNumberTypeQuery
-    ? `
-const parseNumberTypeQueryParams = (numberTypeParams: [string, boolean, boolean][]): preValidationHookHandler => (req, reply, done) => {
-  const query: any = req.query
-
-  for (const [key, isOptional, isArray] of numberTypeParams) {
-    const param = isArray ? (query[\`\${key}[]\`] ?? query[key]) : query[key]
-
-    if (isArray) {
-      if (!isOptional && param === undefined) {
-        query[key] = []
-      } else if (!isOptional || param !== undefined) {
-        const vals = (Array.isArray(param) ? param : [param]).map(Number)
-
-        if (vals.some(isNaN)) {
-          reply.code(400).send()
-          return
-        }
-
-        query[key] = vals as any
-      }
-
-      delete query[\`\${key}[]\`]
-    } else if (!isOptional || param !== undefined) {
-      const val = Number(param)
-
-      if (isNaN(val)) {
-        reply.code(400).send()
-        return
-      }
-
-      query[key] = val as any
-    }
-  }
-
-  done()
+  hasSchemas
+    ? ''
+    : `
+type ZodSchema = {
+  parse: <T>(value: T) => T
+  parseAsync: <T>(value: T) => Promise<T>
 }
 `
-    : ''
-}${
-      hasBooleanTypeQuery
-        ? `
-const parseBooleanTypeQueryParams = (booleanTypeParams: [string, boolean, boolean][]): preValidationHookHandler => (req, reply, done) => {
-  const query: any = req.query
-
-  for (const [key, isOptional, isArray] of booleanTypeParams) {
-    const param = isArray ? (query[\`\${key}[]\`] ?? query[key]) : query[key]
-
-    if (isArray) {
-      if (!isOptional && param === undefined) {
-        query[key] = []
-      } else if (!isOptional || param !== undefined) {
-        const vals = (Array.isArray(param) ? param : [param]).map(p => p === 'true' ? true : p === 'false' ? false : null)
-
-        if (vals.some(v => v === null)) {
-          reply.code(400).send()
-          return
-        }
-
-        query[key] = vals as any
-      }
-
-      delete query[\`\${key}[]\`]
-    } else if (!isOptional || param !== undefined) {
-      const val = param === 'true' ? true : param === 'false' ? false : null
-
-      if (val === null) {
-        reply.code(400).send()
-        return
-      }
-
-      query[key] = val as any
-    }
-  }
-
-  done()
 }
-`
-        : ''
-    }${
-      hasOptionalQuery
-        ? `
-const callParserIfExistsQuery = (parser: OmitThisParameter<preValidationHookHandler>): preValidationHookHandler => (req, reply, done) =>
-  Object.keys(req.query as any).length ? parser(req, reply, done) : done()
-`
-        : ''
-    }${
-      hasNormalizeQuery
-        ? `
-const normalizeQuery: preValidationHookHandler = (req, _, done) => {
-  req.query = JSON.parse(JSON.stringify(req.query))
-  done()
+interface Schemas {
+  body?: ZodSchema | undefined | null
+  header?: ZodSchema | undefined | null
+  query?: ZodSchema | undefined | null
 }
-`
-        : ''
-    }${
-      hasTypedParams
-        ? `
-const createTypedParamsHandler = (numberTypeParams: string[]): preValidationHookHandler => (req, reply, done) => {
-  const params = req.params as Record<string, string | number>
 
-  for (const key of numberTypeParams) {
-    const val = Number(params[key])
-
-    if (isNaN(val)) {
-      reply.code(400).send()
-      return
-    }
-
-    params[key] = val
-  }
-
-  done()
-}
-`
-        : ''
-    }${
-      hasValidator
-        ? `
-const createValidateHandler = (validators: (req: FastifyRequest) => (Promise<void> | null)[]): preValidationHookHandler =>
-  (req, reply) => Promise.all(validators(req)).catch(err => reply.code(400).send(err))
-`
-        : ''
-    }${
-      hasMultipart
-        ? `
-const formatMultipartData = (arrayTypeKeys: [string, boolean][]): preValidationHookHandler => (req, _, done) => {
-  const body: any = req.body
-
-  for (const [key] of arrayTypeKeys) {
-    if (body[key] === undefined) body[key] = []
-    else if (!Array.isArray(body[key])) {
-      body[key] = [body[key]]
-    }
-  }
-
-  Object.entries(body).forEach(([key, val]) => {
-    if (Array.isArray(val)) {
-      body[key] = (val as Multipart[]).map(v => v.file ? v : (v as any).value)
-    } else {
-      body[key] = (val as Multipart).file ? val : (val as any).value
-    }
+export function defaultCreateError(status: number, data: string | object): H3Error {
+  return createError({
+    statusCode: status,
+    data
   })
-
-  for (const [key, isOptional] of arrayTypeKeys) {
-    if (!body[key].length && isOptional) delete body[key]
-  }
-
-  done()
 }
-`
-        : ''
-    }${hasMethodToHandler ? genHandlerText(false) : ''}${
-      hasAsyncMethodToHandler ? genHandlerText(true) : ''
+
+function hasBody(req: IncomingMessage): boolean {
+  return (
+    req.method === 'POST' ||
+    req.method === 'PATCH' ||
+    req.method === 'PUT' ||
+    req.method === 'DELETE'
+  )
+}
+
+function identity<T>(value: T): T {
+  return value
+}
+
+function toBoolean(str: string): boolean | undefined {
+  return {
+    true: true,
+    false: false,
+    '1': true,
+    '0': false
+  }[str]
+}
+
+function toInteger(str: string): number | undefined {
+  if (!/^\\d+$/.test(str)) {
+    return undefined
+  }
+  const value = parseInt(str, 10)
+  if (!isFinite(value) || value < 0 || value > Number.MAX_SAFE_INTEGER) {
+    return undefined
+  }
+  return value
+}
+
+function toArray<T>(value: T | readonly T[]): readonly T[]
+function toArray<T>(value: T | T[]): T[]
+function toArray<T>(value: T | readonly T[] | T[]): readonly T[] | T[] {
+  return Array.isArray(value) ? (value as any) : [value]
+}
+
+function mergeHooks(hooks: readonly Hooks[]) {
+  return {
+    onRequest: hooks.flatMap(hook => toArray(hook.onRequest || [])),
+    preHandler: hooks.flatMap(hook => toArray(hook.preHandler || []))
+  }
+}
+
+function castRouteParams(
+  params: Record<string, string>,
+  intParams: readonly string[],
+  createError: FrourioCreateError
+): Record<string, string | number> {
+  const result: Record<string, string | number> = { ...params }
+  for (const key of intParams) {
+    const value = params[key]
+    if (value == null) {
+      throw createError(400, \`Missing required route parameter \${key}\`)
     }
-export default (fastify: FastifyInstance, options: FrourioOptions = {}) => {
+    const intValue = toInteger(value)
+    if (intValue == null) {
+      throw createError(400, \`Invalid type of route parameter \${key}\`)
+    }
+    result[key] = intValue
+  }
+  return result
+}
+
+type ParamTypeSpec = [key: string, type: 'b' | 'i' | 's', optional: boolean, array: boolean]
+
+function castQueryParams(
+  params: Record<string, string | string[] | undefined>,
+  paramTypes: readonly ParamTypeSpec[],
+  isOptional: boolean,
+  createError: FrourioCreateError
+): Record<string, string | number | boolean | string[] | number[] | boolean[]> {
+  if (isOptional && Object.keys(params).length === 0) {
+    return {}
+  }
+  // NOTE: paramTypes has all parameters so we don't have to clone params here
+  const result: Record<string, string | number | boolean | string[] | number[] | boolean[]> = {}
+  for (const [key, type, optional, array] of paramTypes) {
+    const castFn =
+      type === 'b' ? toBoolean : type === 'i' ? toInteger : (identity as (str: string) => string)
+    if (array) {
+      const arrayKey = \`\${key}[]\`
+      const value = params[arrayKey] || params[key]
+      // delete result[key]
+      // delete result[arrayKey]
+      if (value == null) {
+        if (optional) {
+          continue
+        }
+        result[key] = []
+      } else {
+        const castedValues = toArray(value).map<any>(castFn)
+        if (castedValues.some(v => v == null)) {
+          throw createError(400, \`Invalid type of query parameter \${key}\`)
+        }
+        result[key] = castedValues
+      }
+    } else {
+      const value = params[key]
+      // delete result[key]
+      if (value == null) {
+        if (optional) {
+          continue
+        }
+        throw createError(400, \`Missing required query parameter \${key}\`)
+      }
+      const castedValue = typeof value === 'string' ? castFn(value) : null
+      if (castedValue == null) {
+        throw createError(400, \`Invalid type of query parameter \${key}\`)
+      }
+      result[key] = castedValue
+    }
+  }
+  return result
+}
+
+function methodToHandlers(
+  methodCallback: ServerMethods<any, any>[LowerHttpMethod],
+  hooks: readonly Hooks[],
+  schemas: Schemas,
+  intRouteParams: readonly string[],
+  queryParamTypes: readonly ParamTypeSpec[],
+  isQueryOptional: boolean,
+  createError: FrourioCreateError
+): CompatibilityEventHandler[] {
+  const mergedHooks = mergeHooks(hooks)
+  return [
+    (req: IncomingMessage) => {
+      ;(req as any)[symContext] = {
+        params: castRouteParams(req.context.params || {}, intRouteParams, createError)
+      }
+    },
+    ...mergedHooks.onRequest,
+    async (req: IncomingMessage) => {
+      let parsing = ''
+      try {
+        // handle query first to throw exceptions early
+        parsing = 'query'
+        const query = castQueryParams(useQuery(req), queryParamTypes, isQueryOptional, createError)
+        ;(req as any)[symContext].query = schemas.query
+          ? await schemas.query.parseAsync(query)
+          : query
+
+        if (hasBody(req)) {
+          parsing = 'body'
+          const body = await useBody(req)
+          ;(req as any)[symContext].body = schemas.body ? await schemas.body.parseAsync(body) : body
+        }
+      } catch (error: unknown) {${
+        hasSchemas
+          ? `
+        if (error instanceof ZodError) {
+          throw createError(400, {
+            type: \`invalid_request_\${parsing}\`,
+            issues: error.issues
+          })
+        }`
+          : ''
+      }
+        throw error
+      }
+    },
+    ...mergedHooks.preHandler,
+    async (req: IncomingMessage, res: ServerResponse) => {
+      const context = (req as any)[symContext]
+      const data = await methodCallback(context, req)
+      const isText = typeof data.body === 'string'
+      res.setHeader(
+        'Content-Type',
+        isText ? 'text/plain; charset=utf-8' : 'application/json; charset=utf-8'
+      )
+      if (data.headers) {
+        for (const [key, value] of Object.entries(data.headers)) {
+          res.setHeader(key, value as string)
+        }
+      }
+      res.statusCode = data.status
+      res.end(isText ? data.body : JSON.stringify(data.body))
+    }
+  ]
+}
+
+function mergeHandlers(handlers: CompatibilityEventHandler[]): CompatibilityEventHandler {
+  return async (req: IncomingMessage, res: ServerResponse) => {
+    for (const handler of handlers) {
+      const data = await callHandler(handler, req, res)
+      if (data) {
+        return data
+      }
+    }
+  }
+}
+
+function methodToHandler(...args: Parameters<typeof methodToHandlers>): CompatibilityEventHandler {
+  return mergeHandlers(methodToHandlers(...args))
+}
+
+export default (router: Router, options: FrourioOptions = {}) => {
   const basePath = options.basePath ?? ''
-${
-  hasValidator
-    ? '  const transformerOptions: ClassTransformOptions = { enableCircularCheck: true, ...options.transformer }\n' +
-      '  const validatorOptions: ValidatorOptions = { validationError: { target: false }, ...options.validator }\n' +
-      '  const { plainToInstance = defaultPlainToInstance as NonNullable<FrourioOptions["plainToInstance"]>, validateOrReject = defaultValidateOrReject as NonNullable<FrourioOptions["validateOrReject"]> } = options\n'
-    : ''
-}${consts}
-${
-  hasMultipart
-    ? '  fastify.register(multipart, { attachFieldsToBody: true, limits: { fileSize: 1024 ** 3 }, ...options.multipart })\n\n'
-    : ''
-}${controllers}
-  return fastify
+  const createError = options.createError ?? defaultCreateError
+
+${consts}
+${controllers}
+  return router
 }
 `,
     filePath: path.posix.join(input, '$server.ts')

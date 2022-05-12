@@ -7,7 +7,7 @@ export default defineHooks(() => ({
       done()
     }
   ],
-  preParsing: (req, _reply, _payload, done) => {
+  preHandler: (req, _, done) => {
     console.log('Directory level middleware:', req.url)
     done()
   }

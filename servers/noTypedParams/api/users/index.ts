@@ -1,11 +1,12 @@
-import { UserInfo } from '../../validators'
+import type { z } from 'zod'
+import type { zUserInfo } from '../../schemas'
 
 export type Methods = {
   get: {
-    resBody: UserInfo[]
+    resBody: z.infer<typeof zUserInfo>[]
   }
 
   post: {
-    reqBody: UserInfo
+    reqBody: z.infer<typeof zUserInfo>
   }
 }

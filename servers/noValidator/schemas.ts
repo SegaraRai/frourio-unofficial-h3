@@ -16,7 +16,5 @@ export type UserInfo = {
 export type MultiForm = {
   empty: number[]
   name: string
-  icon: Blob
   vals: string[]
-  files: Blob[]
 }

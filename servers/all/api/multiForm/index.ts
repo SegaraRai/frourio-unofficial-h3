@@ -1,9 +1,10 @@
-import { MultiForm } from 'validators'
+import type { zMultiForm } from 'schemas'
+import type { z } from 'zod'
 
 export type Methods = {
   post: {
     reqFormat: FormData
-    reqBody: MultiForm
+    reqBody: z.infer<typeof zMultiForm>
     resBody: {
       empty: number
       name: number
