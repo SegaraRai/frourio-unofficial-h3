@@ -108,7 +108,7 @@
     "jest": "^28.1.0",
     "listen": "^1.0.1",
     "listhen": "^0.2.11",
-    "node-fetch": "^2.6.7",
+    "node-fetch": "^3.2.4",
     "prettier": "^2.6.2",
     "rimraf": "^3.0.2",
     "ts-jest": "^28.0.2",
