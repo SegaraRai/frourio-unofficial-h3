@@ -176,22 +176,13 @@ function methodToHandlers(
     },
     ...mergedHooks.onRequest,
     async (req: IncomingMessage) => {
-      let parsing = ''
-      try {
-        // handle query first to throw exceptions early
-        parsing = 'query'
-        const query = castQueryParams(useQuery(req), queryParamTypes, isQueryOptional, createError)
-        ;(req as any)[symContext].query = schemas.query
-          ? await schemas.query.parseAsync(query)
-          : query
+      // handle query first to throw exceptions early
+      const query = castQueryParams(useQuery(req), queryParamTypes, isQueryOptional, createError)
+      ;(req as any)[symContext].query = query
 
-        if (hasBody(req)) {
-          parsing = 'body'
-          const body = await useBody(req)
-          ;(req as any)[symContext].body = schemas.body ? await schemas.body.parseAsync(body) : body
-        }
-      } catch (error: unknown) {
-        throw error
+      if (hasBody(req)) {
+        const body = await useBody(req)
+        ;(req as any)[symContext].body = body
       }
     },
     ...mergedHooks.preHandler,
