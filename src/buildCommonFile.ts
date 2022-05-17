@@ -2,7 +2,7 @@ import path from 'path'
 
 export default (input: string) => {
   return {
-    text: `import type { AspidaMethods, HttpStatusOk, AspidaMethodParams } from 'aspida'
+    text: `import type { AspidaMethodParams, AspidaMethods, HttpStatusOk } from 'aspida'
 import type { IncomingMessage, Middleware } from 'h3'
 
 export type HttpStatusNoOk =
