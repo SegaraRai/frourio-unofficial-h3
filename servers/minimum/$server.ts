@@ -161,7 +161,7 @@ function castQueryParams(
 function methodToHandlers(
   methodCallback: ServerMethods<any, any>[LowerHttpMethod],
   hooks: readonly Hooks[],
-  schemas: Schemas,
+  _schemas: Schemas,
   intRouteParams: readonly string[],
   queryParamTypes: readonly ParamTypeSpec[],
   isQueryOptional: boolean,
