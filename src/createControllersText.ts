@@ -333,7 +333,8 @@ export default (appDir: string, project: string) => {
                     .replace(/\s/g, '')
                     .replace(/\0/g, ' ')
                   const match = text?.match(
-                    /^([^:]+):[A-Za-z$_][\w$]*\.infer<typeof\s+([A-Za-z$_][\w$]*)>$/
+                    // semicolons and commas may not be used more than once
+                    /^([^:]+):[A-Za-z$_][\w$]*\.infer<typeof\s+([A-Za-z$_][\w$]*)>[,;]?$/
                   )
 
                   return {
