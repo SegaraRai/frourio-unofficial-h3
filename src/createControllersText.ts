@@ -58,7 +58,7 @@ const createRelayFile = (
   params: Param[]
 ) => {
   const hasAdditionals = !!additionalReqs.length
-  const text = `import type { IncomingMessage, Middleware, Router } from 'h3'
+  const text = `import type { IncomingMessage, Router } from 'h3'
 import type { Injectable } from 'velona'
 import { depend } from 'velona'
 import { Hooks, ServerMethods, symContext } from '${appText}'
