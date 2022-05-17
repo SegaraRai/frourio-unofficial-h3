@@ -188,7 +188,9 @@ function methodToHandlers(
       }
     },
     ...mergedHooks.onRequest,
-    async (req: IncomingMessage) => {
+    async (req: IncomingMessage) => {${
+      hasSchemas
+        ? `
       let parsing = ''
       try {
         // handle query first to throw exceptions early
@@ -203,19 +205,25 @@ function methodToHandlers(
           const body = await useBody(req)
           ;(req as any)[symContext].body = schemas.body ? await schemas.body.parseAsync(body) : body
         }
-      } catch (error: unknown) {${
-        hasSchemas
-          ? `
+      } catch (error: unknown) {
         if (error instanceof ZodError) {
           throw createError(400, {
             type: \`invalid_request_\${parsing}\`,
             issues: error.issues
           })
-        }`
-          : ''
-      }
+        }
         throw error
-      }
+      }`
+        : `
+      // handle query first to throw exceptions early
+      const query = castQueryParams(useQuery(req), queryParamTypes, isQueryOptional, createError)
+      ;(req as any)[symContext].query = query
+
+      if (hasBody(req)) {
+        const body = await useBody(req)
+        ;(req as any)[symContext].body = body
+      }`
+    }
     },
     ...mergedHooks.preHandler,
     async (req: IncomingMessage, res: ServerResponse) => {
