@@ -1,6 +1,6 @@
 import { defineController } from './$relay'
 
-export type AdditionalRequest = {
+export type AdditionalContext = {
   name: string
 }
 

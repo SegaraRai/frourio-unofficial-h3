@@ -67,7 +67,7 @@ ${
     ? additionalReqs
         .map(
           (req, i) =>
-            `import type { AdditionalRequest as AdditionalRequest${i} } from '${req.replace(
+            `import type { AdditionalContext as AdditionalContext${i} } from '${req.replace(
               /^\.\/\./,
               '.'
             )}'\n`
@@ -78,11 +78,11 @@ ${
 
 ${
   hasAdditionals
-    ? `type AdditionalRequest = ${additionalReqs
-        .map((_, i) => `AdditionalRequest${i}`)
+    ? `type AdditionalContext = ${additionalReqs
+        .map((_, i) => `AdditionalContext${i}`)
         .join(' & ')}\n`
     : ''
-}type CurrentContext = ${hasAdditionals ? 'AdditionalRequest & ' : ''}{${
+}type CurrentContext = ${hasAdditionals ? 'AdditionalContext & ' : ''}{${
     params.length
       ? `\n  params: {\n${params.map(v => `    ${v[0]}: ${v[1]}`).join('\n')}\n  }\n`
       : ''
@@ -115,7 +115,7 @@ export function useContext(req: IncomingMessage): CurrentContext {
 
 const getAdditionalResPath = (input: string, name: string) =>
   fs.existsSync(path.join(input, `${name}.ts`)) &&
-  /(^|\n)export .+ AdditionalRequest(,| )/.test(
+  /(^|\n)export .+ AdditionalContext(,| )/.test(
     fs.readFileSync(path.join(input, `${name}.ts`), 'utf8')
   )
     ? [`./${name}`]
@@ -126,12 +126,12 @@ const createFiles = (
   dirPath: string,
   params: Param[],
   appPath: string,
-  additionalRequestPaths: string[]
+  additionalContextPaths: string[]
 ) => {
   const input = path.posix.join(appDir, dirPath)
   const appText = `../${appPath}`
   const additionalReqs = [
-    ...additionalRequestPaths.map(p => `./.${p}`),
+    ...additionalContextPaths.map(p => `./.${p}`),
     ...getAdditionalResPath(input, 'hooks')
   ]
 

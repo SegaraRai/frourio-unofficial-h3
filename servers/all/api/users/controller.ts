@@ -1,6 +1,6 @@
 import { defineController, defineHooks } from './$relay'
 
-type AdditionalRequest = {
+type AdditionalContext = {
   tmp: string
 }
 
@@ -13,7 +13,7 @@ const hooks = defineHooks(() => ({
   ]
 }))
 
-export { hooks, AdditionalRequest }
+export { hooks, AdditionalContext }
 
 export default defineController(() => ({
   get: async () => ({

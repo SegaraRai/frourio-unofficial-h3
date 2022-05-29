@@ -1,6 +1,6 @@
 import { defineHooks, useContext } from './$relay'
 
-export type AdditionalRequest = {
+export type AdditionalContext = {
   user: {
     id: number
     name: string

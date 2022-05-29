@@ -2,11 +2,11 @@ import type { IncomingMessage, Router } from 'h3'
 import type { Injectable } from 'velona'
 import { depend } from 'velona'
 import { Hooks, ServerMethods, symContext } from '../../../$common'
-import type { AdditionalRequest as AdditionalRequest0 } from '../hooks'
+import type { AdditionalContext as AdditionalContext0 } from '../hooks'
 import type { Methods } from './'
 
-type AdditionalRequest = AdditionalRequest0
-type CurrentContext = AdditionalRequest & {
+type AdditionalContext = AdditionalContext0
+type CurrentContext = AdditionalContext & {
   params: {
     userId: number
   }

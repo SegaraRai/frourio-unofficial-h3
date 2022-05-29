@@ -1,6 +1,6 @@
 import { defineHooks } from './$relay'
 
-export type AdditionalRequest = {
+export type AdditionalContext = {
   cookie?: string
 }
 
