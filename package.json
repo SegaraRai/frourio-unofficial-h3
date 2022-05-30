@@ -1,6 +1,6 @@
 {
   "name": "frourio-unofficial-h3",
-  "version": "0.31.0",
+  "version": "0.31.1",
   "description": "Unofficial port of frourio to h3 with zod",
   "authors": [
     "Solufa <solufa2020@gmail.com>",
