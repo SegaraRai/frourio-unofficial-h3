@@ -39,4 +39,4 @@ test('build', async () => {
       (await fs.promises.readFile(target.filePath, 'utf8')).replace(/\r/g, '')
     )
   }
-}, 20_000)
+}, 40_000)

@@ -1,10 +1,10 @@
 import minimist from 'minimist'
-import write from 'aspida/dist/writeRouteFile'
 import watch from 'aspida/dist/watchInputDir'
 import buildCommon from './buildCommonFile'
 import buildServer from './buildServerFile'
 import clean from './cleanStaleRoutes'
 import cleanAll from './cleanAllStaleRoutes'
+import { writeCode2 } from './writeCode'
 
 function createAsyncSerializer(): (fn: (latest: boolean) => void | Promise<void>) => void {
   let promise = Promise.resolve()
@@ -26,21 +26,21 @@ export const run = async (args: string[]) => {
     console.log(`v${require('../package.json').version}`)
   } else if (argv.watch !== undefined) {
     await cleanAll(dir)
-    write(buildCommon(dir))
-    write(await buildServer(dir, argv.project))
+    await writeCode2(buildCommon(dir))
+    await writeCode2(await buildServer(dir, argv.project))
     const callSerialized = createAsyncSerializer()
     watch(dir, (event, file) =>
       callSerialized(async latest => {
         await clean(dir, event, file)
         if (latest) {
           // we do not have to write $common.ts as it is static for now
-          write(await buildServer(dir, argv.project))
+          await writeCode2(await buildServer(dir, argv.project))
         }
       })
     )
   } else {
     await cleanAll(dir)
-    write(buildCommon(dir))
-    write(await buildServer(dir, argv.project))
+    await writeCode2(buildCommon(dir))
+    await writeCode2(await buildServer(dir, argv.project))
   }
 }

@@ -2,6 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import ts from 'typescript'
 import createDefaultFiles from './createDefaultFilesIfNotExists'
+import { writeCode } from './writeCode'
 
 type HooksEvent = 'onRequest' | 'preHandler'
 type Param = [string, string]
@@ -104,11 +105,7 @@ export function useContext(req: IncomingMessage): CurrentContext {
 }
 `
 
-  await fs.promises.writeFile(
-    path.join(input, '$relay.ts'),
-    text.replace(', {}', '').replace(' & {}', ''),
-    'utf-8'
-  )
+  await writeCode(path.join(input, '$relay.ts'), text.replace(', {}', '').replace(' & {}', ''))
 }
 
 const getAdditionalResPath = async (input: string, name: string) =>
