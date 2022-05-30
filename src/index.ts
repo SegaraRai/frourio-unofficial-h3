@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import fs from 'fs'
 import minimist from 'minimist'
 import watch from 'aspida/dist/watchInputDir'
@@ -28,12 +29,13 @@ export const run = async (args: string[]) => {
   } else if (argv.watch !== undefined) {
     const cache = new Map<string, string>()
     const writeCodeCached = async (filePath: string, text: string) => {
-      if (cache.get(filePath) === text) {
+      const hash = crypto.createHash('sha256').update(text).digest('hex')
+      if (cache.get(filePath) === hash) {
         return
       }
-      cache.set(filePath, text)
+      cache.set(filePath, hash)
       await writeCode(filePath, text, async (fp, code, charset) => {
-        if (cache.get(filePath) !== text) {
+        if (cache.get(filePath) !== hash) {
           // stale
           return
         }
