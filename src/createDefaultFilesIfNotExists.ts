@@ -1,13 +1,13 @@
 import fs from 'fs'
 import path from 'path'
 
-export default (dir: string) => {
-  const isEmptyDir = fs.readdirSync(dir).length === 0
+export default async (dir: string) => {
+  const isEmptyDir = (await fs.promises.readdir(dir)).length === 0
 
   const indexFilePath = path.join(dir, 'index.ts')
 
   if (isEmptyDir && !fs.existsSync(indexFilePath)) {
-    fs.writeFileSync(
+    await fs.promises.writeFile(
       indexFilePath,
       `export type Methods = {
   get: {
@@ -22,7 +22,7 @@ export default (dir: string) => {
   const controllerFilePath = path.join(dir, 'controller.ts')
 
   if (isEmptyDir && !fs.existsSync(controllerFilePath)) {
-    fs.writeFileSync(
+    await fs.promises.writeFile(
       controllerFilePath,
       `import { defineController } from './$relay'
 
@@ -36,8 +36,8 @@ export default defineController(() => ({
 
   const hooksFilePath = path.join(dir, 'hooks.ts')
 
-  if (fs.existsSync(hooksFilePath) && !fs.readFileSync(hooksFilePath, 'utf8')) {
-    fs.writeFileSync(
+  if (fs.existsSync(hooksFilePath) && !(await fs.promises.readFile(hooksFilePath, 'utf8'))) {
+    await fs.promises.writeFile(
       hooksFilePath,
       `import { defineHooks } from './$relay'
 

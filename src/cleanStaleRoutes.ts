@@ -5,9 +5,9 @@ const isManagedJSTSFile = (filepath: string): boolean => {
   return Boolean(filepath.match(/^\$.*\.[mc]?[jt]s$/))
 }
 
-export const isStaleRouteDir = (routeDir: string): boolean => {
+export const isStaleRouteDir = async (routeDir: string): Promise<boolean> => {
   try {
-    const entries = fs.readdirSync(routeDir, { withFileTypes: true })
+    const entries = await fs.promises.readdir(routeDir, { withFileTypes: true })
     if (entries.length === 0) return false
     for (const p of entries) {
       if (p.isDirectory()) return false
@@ -19,24 +19,24 @@ export const isStaleRouteDir = (routeDir: string): boolean => {
   }
 }
 
-export const cleanStaleRouteDir = (routeDir: string) => {
+export const cleanStaleRouteDir = async (routeDir: string): Promise<void> => {
   try {
-    const entries = fs.readdirSync(routeDir, { withFileTypes: true })
+    const entries = await fs.promises.readdir(routeDir, { withFileTypes: true })
     if (entries.length === 0) return
     for (const p of entries) {
       if (p.isDirectory()) return
       if (!isManagedJSTSFile(p.name)) return
-      fs.unlinkSync(path.resolve(routeDir, p.name))
+      await fs.promises.unlink(path.resolve(routeDir, p.name))
     }
-    fs.rmdirSync(routeDir)
+    await fs.promises.rmdir(routeDir)
   } catch (e: unknown) {}
 }
 
-export default (dir: string, event: string, file: string): void => {
+export default async (dir: string, event: string, file: string): Promise<void> => {
   if (event !== 'unlink' && event !== 'unlinkDir') return
   const routeDir = path.dirname(path.resolve(dir, file))
 
-  if (isStaleRouteDir(routeDir)) {
-    cleanStaleRouteDir(routeDir)
+  if (await isStaleRouteDir(routeDir)) {
+    await cleanStaleRouteDir(routeDir)
   }
 }

@@ -6,22 +6,20 @@ import createDefaultFiles from './createDefaultFilesIfNotExists'
 type HooksEvent = 'onRequest' | 'preHandler'
 type Param = [string, string]
 
-const findRootFiles = (dir: string): string[] =>
-  fs
-    .readdirSync(dir, { withFileTypes: true })
-    .reduce<string[]>(
-      (prev, d) => [
-        ...prev,
-        ...(d.isDirectory()
-          ? findRootFiles(`${dir}/${d.name}`)
-          : d.name === 'hooks.ts' || d.name === 'controller.ts'
-          ? [`${dir}/${d.name}`]
-          : [])
-      ],
-      []
-    )
+const findRootFiles = async (dir: string): Promise<string[]> =>
+  (await fs.promises.readdir(dir, { withFileTypes: true })).reduce<Promise<string[]>>(
+    async (prev, d) => [
+      ...(await prev),
+      ...(d.isDirectory()
+        ? await findRootFiles(`${dir}/${d.name}`)
+        : d.name === 'hooks.ts' || d.name === 'controller.ts'
+        ? [`${dir}/${d.name}`]
+        : [])
+    ],
+    Promise.resolve([])
+  )
 
-const initTSC = (appDir: string, project: string) => {
+const initTSC = async (appDir: string, project: string) => {
   const configDir = path.resolve(project.replace(/\/[^/]+\.json$/, ''))
   const configFileName = ts.findConfigFile(
     configDir,
@@ -38,7 +36,7 @@ const initTSC = (appDir: string, project: string) => {
     : undefined
 
   const program = ts.createProgram(
-    findRootFiles(appDir),
+    await findRootFiles(appDir),
     compilerOptions?.options
       ? {
           baseUrl: compilerOptions?.options.baseUrl,
@@ -51,7 +49,7 @@ const initTSC = (appDir: string, project: string) => {
   return { program, checker: program.getTypeChecker() }
 }
 
-const createRelayFile = (
+const createRelayFile = async (
   input: string,
   appText: string,
   additionalReqs: string[],
@@ -106,22 +104,22 @@ export function useContext(req: IncomingMessage): CurrentContext {
 }
 `
 
-  fs.writeFileSync(
+  await fs.promises.writeFile(
     path.join(input, '$relay.ts'),
     text.replace(', {}', '').replace(' & {}', ''),
-    'utf8'
+    'utf-8'
   )
 }
 
-const getAdditionalResPath = (input: string, name: string) =>
+const getAdditionalResPath = async (input: string, name: string) =>
   fs.existsSync(path.join(input, `${name}.ts`)) &&
   /(^|\n)export .+ AdditionalContext(,| )/.test(
-    fs.readFileSync(path.join(input, `${name}.ts`), 'utf8')
+    await fs.promises.readFile(path.join(input, `${name}.ts`), 'utf8')
   )
     ? [`./${name}`]
     : []
 
-const createFiles = (
+const createFiles = async (
   appDir: string,
   dirPath: string,
   params: Param[],
@@ -132,24 +130,26 @@ const createFiles = (
   const appText = `../${appPath}`
   const additionalReqs = [
     ...additionalContextPaths.map(p => `./.${p}`),
-    ...getAdditionalResPath(input, 'hooks')
+    ...(await getAdditionalResPath(input, 'hooks'))
   ]
 
-  createDefaultFiles(input)
-  createRelayFile(
+  await createDefaultFiles(input)
+  await createRelayFile(
     input,
     appText,
-    [...additionalReqs, ...getAdditionalResPath(input, 'controller')],
+    [...additionalReqs, ...(await getAdditionalResPath(input, 'controller'))],
     params
   )
 
-  const dirs = fs.readdirSync(input, { withFileTypes: true }).filter(d => d.isDirectory())
+  const dirs = (await fs.promises.readdir(input, { withFileTypes: true })).filter(d =>
+    d.isDirectory()
+  )
   if (dirs.filter(d => d.name.startsWith('_')).length >= 2) {
     throw new Error('There are two ore more path param folders.')
   }
 
-  dirs.forEach(d =>
-    createFiles(
+  for (const d of dirs) {
+    await createFiles(
       appDir,
       path.posix.join(dirPath, d.name),
       d.name.startsWith('_')
@@ -158,17 +158,17 @@ const createFiles = (
       appText,
       additionalReqs
     )
-  )
+  }
 }
 
-export default (appDir: string, project: string) => {
-  createFiles(appDir, '', [], '$common', [])
+export default async (appDir: string, project: string) => {
+  await createFiles(appDir, '', [], '$common', [])
 
-  const { program, checker } = initTSC(appDir, project)
+  const { program, checker } = await initTSC(appDir, project)
   const hooksPaths: string[] = []
   const controllers: [string, boolean][] = []
   const schemaSet = new Set<string>()
-  const createText = (
+  const createText = async (
     dirPath: string,
     cascadingHooks: { name: string; events: { type: HooksEvent; isArray: boolean }[] }[]
   ) => {
@@ -325,7 +325,7 @@ export default (appDir: string, project: string) => {
               ]
                 .filter((prop): prop is { name: string; val: ts.Symbol } => !!prop.val)
                 .map(({ name, val }) => {
-                  // e.g. 'reqBody: z.infer<typeof zUserInfo>'
+                  // e.g. 'reqBody: z.infer<typeof zUserInfo>;'
                   const text = val.valueDeclaration
                     ?.getText()
                     .trim()
@@ -339,7 +339,7 @@ export default (appDir: string, project: string) => {
 
                   return {
                     name,
-                    type: (match && match[2]) || '',
+                    type: match?.[2] || '',
                     hasQuestion: !!val.declarations?.some(
                       d => d.getChildAt(1).kind === ts.SyntaxKind.QuestionToken
                     )
@@ -395,29 +395,34 @@ export default (appDir: string, project: string) => {
       }
     }
 
-    const childrenDirs = fs.readdirSync(input, { withFileTypes: true }).filter(d => d.isDirectory())
+    const childrenDirs = (await fs.promises.readdir(input, { withFileTypes: true })).filter(d =>
+      d.isDirectory()
+    )
 
     if (childrenDirs.length) {
       results.push(
-        ...childrenDirs
+        ...(await childrenDirs
           .filter(d => !d.name.startsWith('_'))
-          .reduce<string[]>(
-            (prev, d) => [...prev, ...createText(path.posix.join(dirPath, d.name), hooks)],
-            []
-          )
+          .reduce<Promise<string[]>>(
+            async (prev, d) => [
+              ...(await prev),
+              ...(await createText(path.posix.join(dirPath, d.name), hooks))
+            ],
+            Promise.resolve([])
+          ))
       )
 
       const value = childrenDirs.find(d => d.name.startsWith('_'))
 
       if (value) {
-        results.push(...createText(path.posix.join(dirPath, value.name), hooks))
+        results.push(...(await createText(path.posix.join(dirPath, value.name), hooks)))
       }
     }
 
     return results
   }
 
-  const text = createText('', []).join('')
+  const text = (await createText('', [])).join('')
   const schemaImportText = schemaSet.size
     ? `import { ${Array.from(schemaSet).sort().join(', ')} } from './schemas'\n`
     : ''

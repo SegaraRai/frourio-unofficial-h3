@@ -1,8 +1,8 @@
 import path from 'path'
 import createControllersText from './createControllersText'
 
-export default (input: string, project?: string) => {
-  const { hasSchemas, imports, consts, controllers } = createControllersText(
+export default async (input: string, project?: string) => {
+  const { hasSchemas, imports, consts, controllers } = await createControllersText(
     `${input}/api`,
     project ?? input
   )

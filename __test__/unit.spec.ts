@@ -2,19 +2,19 @@ import fs from 'fs'
 import rimraf from 'rimraf'
 import createDefaultFilesIfNotExists from '../src/createDefaultFilesIfNotExists'
 
-test('createDefaultFilesIfNotExists', () => {
+test('createDefaultFilesIfNotExists', async () => {
   const dir = 'tmp'
-  fs.mkdirSync(dir)
-  createDefaultFilesIfNotExists(dir)
+  await fs.promises.mkdir(dir)
+  await createDefaultFilesIfNotExists(dir)
 
-  expect(fs.readFileSync(`${dir}/index.ts`, 'utf8')).toBe(`export type Methods = {
+  expect(await fs.promises.readFile(`${dir}/index.ts`, 'utf8')).toBe(`export type Methods = {
   get: {
     resBody: string
   }
 }
 `)
 
-  expect(fs.readFileSync(`${dir}/controller.ts`, 'utf8'))
+  expect(await fs.promises.readFile(`${dir}/controller.ts`, 'utf8'))
     .toBe(`import { defineController } from './$relay'
 
 export default defineController(() => ({
@@ -24,10 +24,10 @@ export default defineController(() => ({
 
   expect(fs.existsSync(`${dir}/hooks.ts`)).toBeFalsy()
 
-  fs.writeFileSync(`${dir}/hooks.ts`, '', 'utf8')
-  createDefaultFilesIfNotExists(dir)
+  await fs.promises.writeFile(`${dir}/hooks.ts`, '', 'utf8')
+  await createDefaultFilesIfNotExists(dir)
 
-  expect(fs.readFileSync(`${dir}/hooks.ts`, 'utf8')).toBe(
+  expect(await fs.promises.readFile(`${dir}/hooks.ts`, 'utf8')).toBe(
     `import { defineHooks } from './$relay'
 
 export default defineHooks(() => ({
@@ -40,10 +40,10 @@ export default defineHooks(() => ({
   )
   rimraf.sync(dir)
 
-  fs.mkdirSync(dir)
-  fs.writeFileSync(`${dir}/$test.ts`, '// test file')
-  createDefaultFilesIfNotExists(dir)
-  expect(fs.readdirSync(dir)).toEqual(['$test.ts'])
+  await fs.promises.mkdir(dir)
+  await fs.promises.writeFile(`${dir}/$test.ts`, '// test file')
+  await createDefaultFilesIfNotExists(dir)
+  expect(await fs.promises.readdir(dir)).toEqual(['$test.ts'])
 
   rimraf.sync(dir)
 })
