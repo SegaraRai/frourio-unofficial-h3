@@ -103,6 +103,7 @@ function castRouteParams(
   for (const key of intParams) {
     const value = params[key]
     if (value == null) {
+      // Route params could never be missing. Possibly a bug of the router.
       throw createError(400, `Missing required route parameter ${key}`)
     }
     const intValue = toInteger(value)
