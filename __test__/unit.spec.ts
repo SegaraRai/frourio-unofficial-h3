@@ -46,4 +46,4 @@ export default defineHooks(() => ({
   expect(await fs.promises.readdir(dir)).toEqual(['$test.ts'])
 
   rimraf.sync(dir)
-})
+}, 20_000)
