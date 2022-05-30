@@ -63,23 +63,22 @@ function identity<T>(value: T): T {
 }
 
 function toBoolean(str: string): boolean | undefined {
-  return {
-    true: true,
-    false: false,
-    '1': true,
-    '0': false
-  }[str]
+  if (str === 'true' || str === '1' || str === '') {
+    return true
+  }
+  if (str === 'false' || str === '0') {
+    return false
+  }
 }
 
 function toInteger(str: string): number | undefined {
-  if (!/^\d+$/.test(str)) {
-    return undefined
+  // Number.MAX_SAFE_INTEGER = 9007199254740991 (16 digits)
+  if (/^\d{1,16}$/.test(str)) {
+    const value = parseInt(str, 10)
+    if (isFinite(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER) {
+      return value
+    }
   }
-  const value = parseInt(str, 10)
-  if (!isFinite(value) || value < 0 || value > Number.MAX_SAFE_INTEGER) {
-    return undefined
-  }
-  return value
 }
 
 function toArray<T>(value: T | readonly T[]): readonly T[]
