@@ -7,7 +7,7 @@ const config: Config.InitialOptions = {
   testEnvironment: 'node',
   globals: { Blob: {}, 'ts-jest': {} },
   moduleNameMapper: pathsToModuleNameMapper(compilerOptions.paths, { prefix: '<rootDir>/' }),
-  coveragePathIgnorePatterns: ['\\$api.ts', 'dist']
+  coveragePathIgnorePatterns: ['\\$api.ts', 'dist', 'node_modules']
 }
 
 export default config
