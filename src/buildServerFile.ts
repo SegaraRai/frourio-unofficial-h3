@@ -135,7 +135,7 @@ function castQueryParams(
   const result: Record<string, string | number | boolean | string[] | number[] | boolean[]> = {}
   for (const [key, type, optional, array] of paramTypes) {
     const castFn =
-      type === 'b' ? toBoolean : type === 'i' ? toInteger : (identity as (str: string) => string)
+      type === 's' ? (identity as (str: string) => string) : type === 'i' ? toInteger : toBoolean
     if (array) {
       const arrayKey = \`\${key}[]\`
       const value = params[arrayKey] || params[key]
