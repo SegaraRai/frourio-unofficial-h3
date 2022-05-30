@@ -1,10 +1,11 @@
+import fs from 'fs'
 import minimist from 'minimist'
 import watch from 'aspida/dist/watchInputDir'
 import buildCommon from './buildCommonFile'
 import buildServer from './buildServerFile'
 import clean from './cleanStaleRoutes'
 import cleanAll from './cleanAllStaleRoutes'
-import { writeCode2 } from './writeCode'
+import { writeCode, writeCode2 } from './writeCode'
 
 function createAsyncSerializer(): (fn: (latest: boolean) => void | Promise<void>) => void {
   let promise = Promise.resolve()
@@ -25,16 +26,40 @@ export const run = async (args: string[]) => {
   if (argv.version !== undefined) {
     console.log(`v${require('../package.json').version}`)
   } else if (argv.watch !== undefined) {
+    const cache = new Map<string, string>()
+    const writeCodeCached = async (filePath: string, text: string) => {
+      if (cache.get(filePath) === text) {
+        return
+      }
+      cache.set(filePath, text)
+      await writeCode(filePath, text, async (fp, code, charset) => {
+        if (cache.get(filePath) !== text) {
+          // stale
+          return
+        }
+        await fs.promises.writeFile(fp, code, charset)
+      })
+    }
+    const writeCode2Cached = ({
+      filePath,
+      text
+    }: {
+      readonly filePath: string
+      readonly text: string
+    }) => {
+      return writeCodeCached(filePath, text)
+    }
+
     await cleanAll(dir)
-    await writeCode2(buildCommon(dir))
-    await writeCode2(await buildServer(dir, argv.project))
+    await writeCode2Cached(buildCommon(dir))
+    await writeCode2Cached(await buildServer(dir, argv.project, writeCodeCached))
     const callSerialized = createAsyncSerializer()
     watch(dir, (event, file) =>
       callSerialized(async latest => {
         await clean(dir, event, file)
         if (latest) {
           // we do not have to write $common.ts as it is static for now
-          await writeCode2(await buildServer(dir, argv.project))
+          await writeCode2Cached(await buildServer(dir, argv.project, writeCodeCached))
         }
       })
     )

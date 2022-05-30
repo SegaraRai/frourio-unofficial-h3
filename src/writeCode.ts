@@ -31,7 +31,11 @@ function initPrettier() {
   return prettierCache
 }
 
-export async function writeCode(filePath: string, code: string): Promise<void> {
+export async function writeCode(
+  filePath: string,
+  code: string,
+  write = fs.promises.writeFile
+): Promise<void> {
   const eslint = initESLint()
   if (eslint) {
     const [result] = await eslint.lintText(code, {
@@ -49,15 +53,18 @@ export async function writeCode(filePath: string, code: string): Promise<void> {
     })
   }
 
-  await fs.promises.writeFile(filePath, code, 'utf-8')
+  await write(filePath, code, 'utf-8')
 }
 
-export function writeCode2({
-  filePath,
-  text
-}: {
-  readonly filePath: string
-  readonly text: string
-}): Promise<void> {
-  return writeCode(filePath, text)
+export function writeCode2(
+  {
+    filePath,
+    text
+  }: {
+    readonly filePath: string
+    readonly text: string
+  },
+  write = fs.promises.writeFile
+): Promise<void> {
+  return writeCode(filePath, text, write)
 }

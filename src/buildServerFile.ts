@@ -1,10 +1,12 @@
 import path from 'path'
 import createControllersText from './createControllersText'
+import { writeCode } from './writeCode'
 
-export default async (input: string, project?: string) => {
+export default async (input: string, project?: string | null | undefined, write = writeCode) => {
   const { hasSchemas, imports, consts, controllers } = await createControllersText(
     `${input}/api`,
-    project ?? input
+    project ?? input,
+    write
   )
 
   return {

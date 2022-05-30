@@ -54,7 +54,8 @@ const createRelayFile = async (
   input: string,
   appText: string,
   additionalReqs: string[],
-  params: Param[]
+  params: Param[],
+  write = writeCode
 ) => {
   const hasAdditionals = !!additionalReqs.length
   const text = `import type { IncomingMessage, Router } from 'h3'
@@ -105,7 +106,7 @@ export function useContext(req: IncomingMessage): CurrentContext {
 }
 `
 
-  await writeCode(path.join(input, '$relay.ts'), text.replace(', {}', '').replace(' & {}', ''))
+  await write(path.join(input, '$relay.ts'), text.replace(', {}', '').replace(' & {}', ''))
 }
 
 const getAdditionalResPath = async (input: string, name: string) =>
@@ -121,7 +122,8 @@ const createFiles = async (
   dirPath: string,
   params: Param[],
   appPath: string,
-  additionalContextPaths: string[]
+  additionalContextPaths: string[],
+  write = writeCode
 ) => {
   const input = path.posix.join(appDir, dirPath)
   const appText = `../${appPath}`
@@ -130,12 +132,13 @@ const createFiles = async (
     ...(await getAdditionalResPath(input, 'hooks'))
   ]
 
-  await createDefaultFiles(input)
+  await createDefaultFiles(input, write)
   await createRelayFile(
     input,
     appText,
     [...additionalReqs, ...(await getAdditionalResPath(input, 'controller'))],
-    params
+    params,
+    write
   )
 
   const dirs = (await fs.promises.readdir(input, { withFileTypes: true })).filter(d =>
@@ -153,13 +156,14 @@ const createFiles = async (
         ? [...params, [d.name.slice(1).split('@')[0], d.name.split('@')[1] ?? 'string']]
         : params,
       appText,
-      additionalReqs
+      additionalReqs,
+      write
     )
   }
 }
 
-export default async (appDir: string, project: string) => {
-  await createFiles(appDir, '', [], '$common', [])
+export default async (appDir: string, project: string, write = writeCode) => {
+  await createFiles(appDir, '', [], '$common', [], write)
 
   const { program, checker } = await initTSC(appDir, project)
   const hooksPaths: string[] = []
