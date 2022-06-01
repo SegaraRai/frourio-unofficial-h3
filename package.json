@@ -82,7 +82,7 @@
     ]
   },
   "dependencies": {
-    "aspida": "^1.10.1",
+    "aspida": "^1.10.2",
     "velona": "^0.7.0"
   },
   "devDependencies": {
