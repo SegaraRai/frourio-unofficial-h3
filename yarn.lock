@@ -9,10 +9,10 @@
   dependencies:
     "@jridgewell/trace-mapping" "^0.3.0"
 
-"@aspida/axios@^1.10.1":
-  version "1.10.1"
-  resolved "https://registry.yarnpkg.com/@aspida/axios/-/axios-1.10.1.tgz#08a06c75724a4f16a3beb6bcae510131b5da4ddc"
-  integrity sha512-vOUvwAqjfqLm541zzY6lLhchOtkLI9/frsPVWsKZck2aSOKBWKz8gxjUyq7jfgucaybBISFvyLI3mUETE5KVrg==
+"@aspida/axios@^1.10.2":
+  version "1.10.2"
+  resolved "https://registry.yarnpkg.com/@aspida/axios/-/axios-1.10.2.tgz#d668da14e8905f59060254f4eab525d9e975cd81"
+  integrity sha512-8/7QR9vYWqdAHjZwHACwwbSsCMjYySqc39DMHdclbSQ8CAkNJ//Cuu49PihlOm5WNoHfmascS5008Xi3AfDkAw==
   dependencies:
     aspida "^1.7.1"
 
@@ -864,7 +864,7 @@
   resolved "https://registry.yarnpkg.com/@types/minimatch/-/minimatch-3.0.5.tgz#1001cc5e6a3704b83c236027e77f2f58ea010f40"
   integrity sha512-Klz949h02Gz2uZCMGwDUSDS1YBlTdDDgbWHi+81l29tQALUtvz4rAYi5uoVhE5Lagoq6DeqAUlbrHvW/mXDgdQ==
 
-"@types/minimist@^1.2.1", "@types/minimist@^1.2.2":
+"@types/minimist@^1.2.2":
   version "1.2.2"
   resolved "https://registry.yarnpkg.com/@types/minimist/-/minimist-1.2.2.tgz#ee771e2ba4b3dc5b372935d549fd9617bf345b8c"
   integrity sha512-jhuKLIRrhvCPLqwPcx6INqmKeiA5EWrsCOPhrlFSrbrmU4ZMPjj5Ul/oLCMDO98XRUIwVm78xICz4EPCektzeQ==
@@ -1154,22 +1154,12 @@ array.prototype.flat@^1.2.5:
     define-properties "^1.1.3"
     es-abstract "^1.19.0"
 
-aspida@^1.10.1:
+aspida@^1.10.1, aspida@^1.7.1:
   version "1.10.1"
   resolved "https://registry.yarnpkg.com/aspida/-/aspida-1.10.1.tgz#fe536c53dae1a89311d88547fdb5fbd3b0ad1696"
   integrity sha512-m7Q3SPCJWzL9TOgynqneaHNAJFT5apGySc1l2gq6N7E4QROe/B+tdFBMfNKm4Iles6XgXr61+rfym99j104Snw==
   dependencies:
     "@types/minimist" "^1.2.2"
-    chokidar "^3.5.1"
-    form-data "^4.0.0"
-    minimist "^1.2.5"
-
-aspida@^1.7.1:
-  version "1.7.1"
-  resolved "https://registry.yarnpkg.com/aspida/-/aspida-1.7.1.tgz#b021e1766991b3b9a7b85f297f5ac05af4b42b60"
-  integrity sha512-YIfSeLHPAtIkWnu8QFfKvlPB0/S6sRjD2WgmHuiTbhvTdINqK0KMPNK8WepUORXmUcraSaeHN1xO5MMKTREiTA==
-  dependencies:
-    "@types/minimist" "^1.2.1"
     chokidar "^3.5.1"
     form-data "^4.0.0"
     minimist "^1.2.5"
