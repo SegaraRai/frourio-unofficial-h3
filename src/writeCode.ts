@@ -3,8 +3,12 @@ import fs from 'fs'
 let eslintCache: any
 let prettierCache: any
 
+function isTruthy(value: string | undefined): boolean {
+  return !!value && value !== '0' && value !== 'false'
+}
+
 function initESLint() {
-  if (eslintCache != null) {
+  if (eslintCache != null || isTruthy(process.env.FROURIO_NO_ESLINT)) {
     return eslintCache
   }
 
@@ -22,6 +26,10 @@ function initESLint() {
 }
 
 function initPrettier() {
+  if (prettierCache != null || isTruthy(process.env.FROURIO_NO_PRETTIER)) {
+    return prettierCache
+  }
+
   try {
     prettierCache = require('prettier')
   } catch (_error) {
