@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.31.4](https://github.com/SegaraRai/frourio-unofficial-h3/compare/v0.31.3...v0.31.4) (2022-07-03)
+
+
+### Features
+
+* disable eslint and prettier by process.env ([d0b14fc](https://github.com/SegaraRai/frourio-unofficial-h3/commit/d0b14fc7a31cd93ea48c5d405e1ba0ab2c4a82d5))
+
+
+### Bug Fixes
+
+* include all dependencies into package.json ([ba4dce3](https://github.com/SegaraRai/frourio-unofficial-h3/commit/ba4dce345c32de6941e05bc43ec99783c624d665))
+
 ## [0.29.0](https://github.com/frouriojs/frourio/compare/v0.28.0...v0.29.0) (2022-03-16)
 
 ### Features
