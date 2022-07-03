@@ -1,11 +1,11 @@
 import crypto from 'crypto'
 import fs from 'fs'
 import minimist from 'minimist'
-import watch from 'aspida/dist/watchInputDir'
 import buildCommon from './buildCommonFile'
 import buildServer from './buildServerFile'
 import clean from './cleanStaleRoutes'
 import cleanAll from './cleanAllStaleRoutes'
+import watch from './watchInputDir'
 import { writeCode, writeCode2 } from './writeCode'
 
 function createAsyncSerializer(): (fn: (latest: boolean) => void | Promise<void>) => void {
