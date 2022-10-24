@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.31.5](https://github.com/SegaraRai/frourio-unofficial-h3/compare/v0.31.4...v0.31.5) (2022-10-24)
+
+
+### Features
+
+* support h3 v0.8.0 ([12ec4d9](https://github.com/SegaraRai/frourio-unofficial-h3/commit/12ec4d9d6946a76694b7bf8be28b9f9f019abb9a))
+
 ### [0.31.4](https://github.com/SegaraRai/frourio-unofficial-h3/compare/v0.31.3...v0.31.4) (2022-07-03)
 
 
