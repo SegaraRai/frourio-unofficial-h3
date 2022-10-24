@@ -6,9 +6,8 @@ type AdditionalContext = {
 
 const hooks = defineHooks(() => ({
   preHandler: [
-    (req, _, done) => {
+    ({ req }) => {
       console.log('Controller level preHandler hook:', req.url)
-      done()
     }
   ]
 }))

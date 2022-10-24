@@ -12,18 +12,18 @@ export default async (input: string, project?: string | null | undefined, write 
   return {
     text: `import type { LowerHttpMethod } from 'aspida'
 import {
-  CompatibilityEventHandler,
+  EventHandler,
   H3Error,
-  IncomingMessage,
+  H3Event,
+  H3Response,
   Router,
-  ServerResponse,
-  callHandler,
   createError,
-  useBody,
-  useQuery
+  eventHandler,
+  getQuery,
+  readBody
 } from 'h3'
 ${hasSchemas ? "import { ZodError, ZodSchema } from 'zod'" : ''}
-import { Hooks, ServerMethods, symContext } from './$common'
+import { EventHandlerFn, EventHandlerFnTerminal, Hooks, ServerMethods, symContext } from './$common'
 
 ${imports}
 export type FrourioCreateError = (status: number, data: string | object) => H3Error
@@ -31,6 +31,7 @@ export type FrourioCreateError = (status: number, data: string | object) => H3Er
 export interface FrourioOptions {
   basePath?: string | undefined
   createError?: FrourioCreateError
+  noRespondWith?: boolean
 }
 ${
   hasSchemas
@@ -55,13 +56,8 @@ export function defaultCreateError(status: number, data: string | object): H3Err
   })
 }
 
-function hasBody(req: IncomingMessage): boolean {
-  return (
-    req.method === 'POST' ||
-    req.method === 'PATCH' ||
-    req.method === 'PUT' ||
-    req.method === 'DELETE'
-  )
+function hasBody({ req: { method } }: H3Event): boolean {
+  return method === 'POST' || method === 'PATCH' || method === 'PUT' || method === 'DELETE'
 }
 
 function identity<T>(value: T): T {
@@ -180,32 +176,40 @@ function methodToHandlers(
   intRouteParams: readonly string[],
   queryParamTypes: readonly ParamTypeSpec[],
   isQueryOptional: boolean,
-  createError: FrourioCreateError
-): CompatibilityEventHandler[] {
+  createError: FrourioCreateError,
+  noRespondWith: boolean
+): EventHandlerFn[] {
   const mergedHooks = mergeHooks(hooks)
   return [
-    (req: IncomingMessage) => {
-      ;(req as any)[symContext] = {
-        params: castRouteParams(req.context.params || {}, intRouteParams, createError)
+    (event: H3Event) => {
+      ;(event as any)[symContext] = {
+        params: castRouteParams(event.context.params || {}, intRouteParams, createError)
       }
     },
     ...mergedHooks.onRequest,
-    async (req: IncomingMessage) => {${
+    async (event: H3Event) => {${
       hasSchemas
         ? `
       let parsing = ''
       try {
         // handle query first to throw exceptions early
         parsing = 'query'
-        const query = castQueryParams(useQuery(req), queryParamTypes, isQueryOptional, createError)
-        ;(req as any)[symContext].query = schemas.query
+        const query = castQueryParams(
+          getQuery(event),
+          queryParamTypes,
+          isQueryOptional,
+          createError
+        )
+        ;(event as any)[symContext].query = schemas.query
           ? await schemas.query.parseAsync(query)
           : query
 
-        if (hasBody(req)) {
+        if (hasBody(event)) {
           parsing = 'body'
-          const body = await useBody(req)
-          ;(req as any)[symContext].body = schemas.body ? await schemas.body.parseAsync(body) : body
+          const body = await readBody(event)
+          ;(event as any)[symContext].body = schemas.body
+            ? await schemas.body.parseAsync(body)
+            : body
         }
       } catch (error: unknown) {
         if (error instanceof ZodError) {
@@ -218,53 +222,61 @@ function methodToHandlers(
       }`
         : `
       // handle query first to throw exceptions early
-      const query = castQueryParams(useQuery(req), queryParamTypes, isQueryOptional, createError)
-      ;(req as any)[symContext].query = query
+      const query = castQueryParams(getQuery(event), queryParamTypes, isQueryOptional, createError)
+      ;(event as any)[symContext].query = query
 
-      if (hasBody(req)) {
-        const body = await useBody(req)
-        ;(req as any)[symContext].body = body
+      if (hasBody(event)) {
+        const body = await readBody(event)
+        ;(event as any)[symContext].body = body
       }`
     }
     },
     ...mergedHooks.preHandler,
-    async (req: IncomingMessage, res: ServerResponse) => {
-      const context = (req as any)[symContext]
-      const data = await methodCallback(context, req)
+    async (event: H3Event) => {
+      const context = (event as any)[symContext]
+      const data = await methodCallback(context, event)
       const isText = typeof data.body === 'string'
-      res.setHeader(
-        'Content-Type',
-        isText ? 'text/plain; charset=utf-8' : 'application/json; charset=utf-8'
-      )
-      if (data.headers) {
-        for (const [key, value] of Object.entries(data.headers)) {
-          res.setHeader(key, value as string)
-        }
+      const h3res = new H3Response(isText ? data.body : JSON.stringify(data.body), {
+        status: data.status,
+        headers: data.headers
+      })
+      if (!h3res.headers.has('Content-Type')) {
+        h3res.headers.set(
+          'Content-Type',
+          isText ? 'text/plain; charset=utf-8' : 'application/json; charset=utf-8'
+        )
       }
-      res.statusCode = data.status
-      res.end(isText ? data.body : JSON.stringify(data.body))
+      if (!noRespondWith) {
+        event.respondWith(h3res)
+      }
+      return h3res
     }
   ]
 }
 
-function mergeHandlers(handlers: CompatibilityEventHandler[]): CompatibilityEventHandler {
-  return async (req: IncomingMessage, res: ServerResponse) => {
+function mergeHandlers(
+  handlers: EventHandlerFn[],
+  createError: FrourioCreateError
+): EventHandlerFnTerminal {
+  return async event => {
     for (const handler of handlers) {
-      const data = await callHandler(handler, req, res)
+      const data = await handler(event)
       if (data) {
         return data
       }
     }
+    throw createError(500, 'No handler returned a response')
   }
 }
 
-function methodToHandler(...args: Parameters<typeof methodToHandlers>): CompatibilityEventHandler {
-  return mergeHandlers(methodToHandlers(...args))
+function m2h(...args: Parameters<typeof methodToHandlers>): EventHandler<H3Response> {
+  return eventHandler(mergeHandlers(methodToHandlers(...args), args[6]))
 }
 
 export default (router: Router, options: FrourioOptions = {}) => {
-  const basePath = options.basePath ?? ''
-  const createError = options.createError ?? defaultCreateError
+  const bp = options.basePath ?? ''
+  const ce = options.createError ?? defaultCreateError
+  const nrw = options.noRespondWith ?? false
 
 ${consts}
 ${controllers}

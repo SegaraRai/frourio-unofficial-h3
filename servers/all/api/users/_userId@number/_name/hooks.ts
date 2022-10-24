@@ -5,7 +5,7 @@ export type AdditionalContext = {
 }
 
 export default defineHooks(() => ({
-  onRequest: (_req, _, done) => {
-    done()
+  onRequest: () => {
+    // nothing to do
   }
 }))

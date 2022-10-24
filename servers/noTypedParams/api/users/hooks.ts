@@ -9,10 +9,9 @@ export type AdditionalContext = {
 }
 
 export default defineHooks(() => ({
-  onRequest: (req, _, done) => {
+  onRequest: event => {
     console.log('Added user')
-    const ctx = useContext(req)
+    const ctx = useContext(event)
     ctx.user = { id: 1, name: 'user name', role: 'admin' }
-    done()
   }
 }))

@@ -3,7 +3,13 @@ import path from 'path'
 export default (input: string) => {
   return {
     text: `import type { AspidaMethodParams, AspidaMethods, HttpStatusOk } from 'aspida'
-import type { IncomingMessage, Middleware } from 'h3'
+import type { H3Event, H3Response } from 'h3'
+
+export type EventHandlerFnMiddleware = (event: H3Event) => void | Promise<void>
+
+export type EventHandlerFnTerminal = (event: H3Event) => H3Response | Promise<H3Response>
+
+export type EventHandlerFn = EventHandlerFnMiddleware | EventHandlerFnTerminal
 
 export type HttpStatusNoOk =
   | 301
@@ -57,16 +63,19 @@ export type RequestParams<T extends AspidaMethodParams> = Pick<
   }['query' | 'body' | 'headers']
 >
 
-export type ServerMethods<T extends AspidaMethods, U extends Record<string, any> = {}> = {
+export type ServerMethods<
+  T extends AspidaMethods & Record<string, any>,
+  U extends Record<string, any> = {}
+> = {
   [K in keyof T]: (
     ctx: RequestParams<T[K]> & U,
-    req: IncomingMessage
+    event: H3Event
   ) => FServerResponse<T[K]> | Promise<FServerResponse<T[K]>>
 }
 
 export interface Hooks {
-  readonly onRequest?: Middleware | readonly Middleware[] | undefined
-  readonly preHandler?: Middleware | readonly Middleware[] | undefined
+  readonly onRequest?: EventHandlerFnMiddleware | readonly EventHandlerFnMiddleware[] | undefined
+  readonly preHandler?: EventHandlerFnMiddleware | readonly EventHandlerFnMiddleware[] | undefined
 }
 
 export const symContext = Symbol('context')

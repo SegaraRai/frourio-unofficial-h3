@@ -2,13 +2,11 @@ import { defineHooks } from './$relay'
 
 export default defineHooks(() => ({
   onRequest: [
-    (req, _, done) => {
+    ({ req }) => {
       console.log('Directory level middleware:', req.url)
-      done()
     }
   ],
-  preHandler: (req, _, done) => {
+  preHandler: ({ req }) => {
     console.log('Directory level middleware:', req.url)
-    done()
   }
 }))

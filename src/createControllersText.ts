@@ -58,7 +58,7 @@ const createRelayFile = async (
   write = writeCode
 ) => {
   const hasAdditionals = !!additionalReqs.length
-  const text = `import type { IncomingMessage, Router } from 'h3'
+  const text = `import type { H3Event, Router } from 'h3'
 import type { Injectable } from 'velona'
 import { depend } from 'velona'
 import { Hooks, ServerMethods, symContext } from '${appText}'
@@ -101,8 +101,8 @@ export function defineController<T extends Record<string, any>>(methods: (router
   return cb && typeof methods !== 'function' ? depend(methods, cb) : methods
 }
 
-export function useContext(req: IncomingMessage): CurrentContext {
-  return (req as any)[symContext]
+export function useContext(event: H3Event): CurrentContext {
+  return (event as any)[symContext]
 }
 `
 
@@ -111,7 +111,7 @@ export function useContext(req: IncomingMessage): CurrentContext {
 
 const getAdditionalResPath = async (input: string, name: string) =>
   fs.existsSync(path.join(input, `${name}.ts`)) &&
-  /(^|\n)export .+ AdditionalContext(,| )/.test(
+  /(^|\n)export .+ AdditionalContext[, ]/.test(
     await fs.promises.readFile(path.join(input, `${name}.ts`), 'utf8')
   )
     ? [`./${name}`]
@@ -230,7 +230,7 @@ export default async (appDir: string, project: string, write = writeCode) => {
         })
 
         if (events) {
-          hooks = [...cascadingHooks, { name: `hooks${hooksPaths.length}`, events }]
+          hooks = [...cascadingHooks, { name: `h${hooksPaths.length}`, events }]
           hooksPaths.push(`${input}/hooks`)
         }
       }
@@ -358,7 +358,7 @@ export default async (appDir: string, project: string, write = writeCode) => {
 
               const allHooks = [
                 ...hooks,
-                ...(ctrlHooksSignature ? [{ name: `ctrlHooks${controllers.length}` }] : [])
+                ...(ctrlHooksSignature ? [{ name: `ch${controllers.length}` }] : [])
               ]
               const hooksTexts = '[' + allHooks.map(hook => hook.name).join(', ') + ']'
 
@@ -382,12 +382,10 @@ export default async (appDir: string, project: string, write = writeCode) => {
                 ']'
 
               const pathText = dirPath
-                ? `\`\${basePath}${`/${dirPath}`
-                    .replace(/\/_/g, '/:')
-                    .replace(/@.+?($|\/)/g, '$1')}\``
-                : "basePath || '/'"
+                ? `\`\${bp}${`/${dirPath}`.replace(/\/_/g, '/:').replace(/@.+?($|\/)/g, '$1')}\``
+                : "bp || '/'"
 
-              return `  /* prettier-ignore */ router.${m.name}(${pathText}, methodToHandler(controller${controllers.length}.${m.name}, ${hooksTexts}, ${schemaText}, ${routeParamTypesText}, ${queryParamTypesText}, ${isQueryOptional}, createError))\n`
+              return `  /* prettier-ignore */ router.${m.name}(${pathText}, m2h(c${controllers.length}.${m.name}, ${hooksTexts}, ${schemaText}, ${routeParamTypesText}, ${queryParamTypesText}, ${isQueryOptional}, ce, nrw))\n`
             })
             .join('')
         )
@@ -444,13 +442,11 @@ export default async (appDir: string, project: string, write = writeCode) => {
       )
       .join('')}${schemaImportText}`,
     consts: `${hooksPaths
-      .map((_, i) => `  const hooks${i} = hooksFn${i}(router)\n`)
+      .map((_, i) => `  const h${i} = hooksFn${i}(router)\n`)
       .join('')}${controllers
-      .map(([, hasHooks], i) =>
-        hasHooks ? `  const ctrlHooks${i} = ctrlHooksFn${i}(router)\n` : ''
-      )
+      .map(([, hasHooks], i) => (hasHooks ? `  const ch${i} = ctrlHooksFn${i}(router)\n` : ''))
       .join('')}${controllers
-      .map((_, i) => `  const controller${i} = controllerFn${i}(router)\n`)
+      .map((_, i) => `  const c${i} = controllerFn${i}(router)\n`)
       .join('')}`,
     controllers: text
   }

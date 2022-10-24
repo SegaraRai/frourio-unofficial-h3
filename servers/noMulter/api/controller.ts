@@ -1,9 +1,8 @@
 import { defineController, defineHooks } from './$relay'
 
 export const hooks = defineHooks(() => ({
-  onRequest: (req, _, done) => {
+  onRequest: ({ req }) => {
     console.log('Controller level onRequest hook:', req.url)
-    done()
   }
 }))
 

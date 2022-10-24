@@ -1,9 +1,7 @@
 /* eslint-disable jest/no-done-callback */
-import fs from 'fs'
 import rimraf from 'rimraf'
-import FormData from 'form-data'
-import axios from 'axios'
-import { createApp, createRouter, Router } from 'h3'
+import { dataToURLString } from 'aspida'
+import { Router, createApp, createRouter, toNodeListener } from 'h3'
 import { Listener, listen } from 'listhen'
 import aspida from '@aspida/axios'
 import aspidaFetch from '@aspida/node-fetch'
@@ -16,7 +14,15 @@ const subPort = 23202
 const baseURL = `http://localhost:${port}`
 const subBasePath = '/api'
 const subBaseURL = `http://localhost:${subPort}${subBasePath}`
-const client = api(aspida(undefined, { baseURL }))
+const client = api(
+  aspida(undefined, {
+    baseURL,
+    // axios v1 format; should be fixed in upstream
+    paramsSerializer: {
+      serialize: params => dataToURLString(params)
+    }
+  })
+)
 const fetchClient = api(aspidaFetch(undefined, { baseURL: subBaseURL, throwHttpErrors: true }))
 let server: Listener
 let serverRouter: Router
@@ -24,14 +30,16 @@ let subServer: Listener
 
 beforeEach(async () => {
   serverRouter = createRouter()
-  server = await listen(createApp().use(frourio(serverRouter)), {
+  server = await listen(toNodeListener(createApp().use(frourio(serverRouter))), {
     port
   })
   subServer = await listen(
-    createApp().use(
-      frourio(createRouter(), {
-        basePath: subBasePath
-      })
+    toNodeListener(
+      createApp().use(
+        frourio(createRouter(), {
+          basePath: subBasePath
+        })
+      )
     ),
     {
       port: subPort
@@ -78,6 +86,7 @@ test('GET: string', async () => {
   const text = 'test'
   const res = await client.texts.get({ query: { val: text } })
   expect(res.body).toBe(text)
+  console.log(res.headers)
   expect(res.headers['content-type']).toBe('text/plain; charset=utf-8')
 })
 
@@ -85,6 +94,7 @@ test('GET: params.userId', async () => {
   const userId = 1
   const res = await client.users._userId(userId).get()
   expect(res.body.id).toBe(userId)
+  console.log(res.headers)
   expect(res.headers['content-type']).toBe('application/json; charset=utf-8')
 })
 
@@ -193,7 +203,6 @@ test('POST: multi file upload', async () => {
     files: 2
   })
 })
-// */
 
 test('POST: 400', async () => {
   const fileName = 'tsconfig.json'
@@ -209,6 +218,7 @@ test('POST: 400', async () => {
     })
   ).rejects.toHaveProperty('response.status', 400)
 })
+// */
 
 test('POST: nested validation', async () => {
   const res1 = await client.users.post({
@@ -326,4 +336,3 @@ test('controller dependency injection', async () => {
   ).resolves.toHaveProperty('body.id', `${+id * 2}`)
   expect(val).toBe(+id * 2)
 })
-// */

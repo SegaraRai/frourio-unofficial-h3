@@ -1,4 +1,4 @@
-import type { IncomingMessage, Router } from 'h3'
+import type { H3Event, Router } from 'h3'
 import type { Injectable } from 'velona'
 import { depend } from 'velona'
 import { Hooks, ServerMethods, symContext } from '../../$common'
@@ -35,6 +35,6 @@ export function defineController<T extends Record<string, any>>(
   return cb && typeof methods !== 'function' ? depend(methods, cb) : methods
 }
 
-export function useContext(req: IncomingMessage): CurrentContext {
-  return (req as any)[symContext]
+export function useContext(event: H3Event): CurrentContext {
+  return (event as any)[symContext]
 }

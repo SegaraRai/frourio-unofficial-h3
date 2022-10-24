@@ -1,17 +1,17 @@
 import type { LowerHttpMethod } from 'aspida'
 import {
-  CompatibilityEventHandler,
+  EventHandler,
   H3Error,
-  IncomingMessage,
+  H3Event,
+  H3Response,
   Router,
-  ServerResponse,
-  callHandler,
   createError,
-  useBody,
-  useQuery
+  eventHandler,
+  getQuery,
+  readBody
 } from 'h3'
 import { ZodError, ZodSchema } from 'zod'
-import { Hooks, ServerMethods, symContext } from './$common'
+import { EventHandlerFn, EventHandlerFnTerminal, Hooks, ServerMethods, symContext } from './$common'
 
 import hooksFn0 from './api/hooks'
 import hooksFn1 from './api/users/hooks'
@@ -28,6 +28,7 @@ export type FrourioCreateError = (status: number, data: string | object) => H3Er
 export interface FrourioOptions {
   basePath?: string | undefined
   createError?: FrourioCreateError
+  noRespondWith?: boolean
 }
 
 interface Schemas {
@@ -43,13 +44,8 @@ export function defaultCreateError(status: number, data: string | object): H3Err
   })
 }
 
-function hasBody(req: IncomingMessage): boolean {
-  return (
-    req.method === 'POST' ||
-    req.method === 'PATCH' ||
-    req.method === 'PUT' ||
-    req.method === 'DELETE'
-  )
+function hasBody({ req: { method } }: H3Event): boolean {
+  return method === 'POST' || method === 'PATCH' || method === 'PUT' || method === 'DELETE'
 }
 
 function identity<T>(value: T): T {
@@ -168,30 +164,38 @@ function methodToHandlers(
   intRouteParams: readonly string[],
   queryParamTypes: readonly ParamTypeSpec[],
   isQueryOptional: boolean,
-  createError: FrourioCreateError
-): CompatibilityEventHandler[] {
+  createError: FrourioCreateError,
+  noRespondWith: boolean
+): EventHandlerFn[] {
   const mergedHooks = mergeHooks(hooks)
   return [
-    (req: IncomingMessage) => {
-      ;(req as any)[symContext] = {
-        params: castRouteParams(req.context.params || {}, intRouteParams, createError)
+    (event: H3Event) => {
+      ;(event as any)[symContext] = {
+        params: castRouteParams(event.context.params || {}, intRouteParams, createError)
       }
     },
     ...mergedHooks.onRequest,
-    async (req: IncomingMessage) => {
+    async (event: H3Event) => {
       let parsing = ''
       try {
         // handle query first to throw exceptions early
         parsing = 'query'
-        const query = castQueryParams(useQuery(req), queryParamTypes, isQueryOptional, createError)
-        ;(req as any)[symContext].query = schemas.query
+        const query = castQueryParams(
+          getQuery(event),
+          queryParamTypes,
+          isQueryOptional,
+          createError
+        )
+        ;(event as any)[symContext].query = schemas.query
           ? await schemas.query.parseAsync(query)
           : query
 
-        if (hasBody(req)) {
+        if (hasBody(event)) {
           parsing = 'body'
-          const body = await useBody(req)
-          ;(req as any)[symContext].body = schemas.body ? await schemas.body.parseAsync(body) : body
+          const body = await readBody(event)
+          ;(event as any)[symContext].body = schemas.body
+            ? await schemas.body.parseAsync(body)
+            : body
         }
       } catch (error: unknown) {
         if (error instanceof ZodError) {
@@ -204,64 +208,72 @@ function methodToHandlers(
       }
     },
     ...mergedHooks.preHandler,
-    async (req: IncomingMessage, res: ServerResponse) => {
-      const context = (req as any)[symContext]
-      const data = await methodCallback(context, req)
+    async (event: H3Event) => {
+      const context = (event as any)[symContext]
+      const data = await methodCallback(context, event)
       const isText = typeof data.body === 'string'
-      res.setHeader(
-        'Content-Type',
-        isText ? 'text/plain; charset=utf-8' : 'application/json; charset=utf-8'
-      )
-      if (data.headers) {
-        for (const [key, value] of Object.entries(data.headers)) {
-          res.setHeader(key, value as string)
-        }
+      const h3res = new H3Response(isText ? data.body : JSON.stringify(data.body), {
+        status: data.status,
+        headers: data.headers
+      })
+      if (!h3res.headers.has('Content-Type')) {
+        h3res.headers.set(
+          'Content-Type',
+          isText ? 'text/plain; charset=utf-8' : 'application/json; charset=utf-8'
+        )
       }
-      res.statusCode = data.status
-      res.end(isText ? data.body : JSON.stringify(data.body))
+      if (!noRespondWith) {
+        event.respondWith(h3res)
+      }
+      return h3res
     }
   ]
 }
 
-function mergeHandlers(handlers: CompatibilityEventHandler[]): CompatibilityEventHandler {
-  return async (req: IncomingMessage, res: ServerResponse) => {
+function mergeHandlers(
+  handlers: EventHandlerFn[],
+  createError: FrourioCreateError
+): EventHandlerFnTerminal {
+  return async event => {
     for (const handler of handlers) {
-      const data = await callHandler(handler, req, res)
+      const data = await handler(event)
       if (data) {
         return data
       }
     }
+    throw createError(500, 'No handler returned a response')
   }
 }
 
-function methodToHandler(...args: Parameters<typeof methodToHandlers>): CompatibilityEventHandler {
-  return mergeHandlers(methodToHandlers(...args))
+function m2h(...args: Parameters<typeof methodToHandlers>): EventHandler<H3Response> {
+  return eventHandler(mergeHandlers(methodToHandlers(...args), args[6]))
 }
 
 export default (router: Router, options: FrourioOptions = {}) => {
-  const basePath = options.basePath ?? ''
-  const createError = options.createError ?? defaultCreateError
+  const bp = options.basePath ?? ''
+  const ce = options.createError ?? defaultCreateError
+  const nrw = options.noRespondWith ?? false
 
-  const hooks0 = hooksFn0(router)
-  const hooks1 = hooksFn1(router)
-  const ctrlHooks0 = ctrlHooksFn0(router)
-  const ctrlHooks4 = ctrlHooksFn4(router)
-  const controller0 = controllerFn0(router)
-  const controller1 = controllerFn1(router)
-  const controller2 = controllerFn2(router)
-  const controller3 = controllerFn3(router)
-  const controller4 = controllerFn4(router)
-  const controller5 = controllerFn5(router)
+  const h0 = hooksFn0(router)
+  const h1 = hooksFn1(router)
+  const ch0 = ctrlHooksFn0(router)
+  const ch4 = ctrlHooksFn4(router)
+  const c0 = controllerFn0(router)
+  const c1 = controllerFn1(router)
+  const c2 = controllerFn2(router)
+  const c3 = controllerFn3(router)
+  const c4 = controllerFn4(router)
+  const c5 = controllerFn5(router)
 
-  /* prettier-ignore */ router.get(basePath || '/', methodToHandler(controller0.get, [hooks0, ctrlHooks0], { query: zQuery }, [], [['id', 's', false, false], ['disable', 's', false, false]], true, createError))
-  /* prettier-ignore */ router.post(basePath || '/', methodToHandler(controller0.post, [hooks0, ctrlHooks0], { query: zQuery, body: zBody }, [], [['id', 's', false, false], ['disable', 's', false, false]], false, createError))
-  /* prettier-ignore */ router.get(`${basePath}/empty/noEmpty`, methodToHandler(controller1.get, [hooks0], {}, [], [], false, createError))
-  /* prettier-ignore */ router.get(`${basePath}/texts`, methodToHandler(controller2.get, [hooks0], {}, [], [['val', 's', false, false]], false, createError))
-  /* prettier-ignore */ router.put(`${basePath}/texts`, methodToHandler(controller2.put, [hooks0], {}, [], [], false, createError))
-  /* prettier-ignore */ router.put(`${basePath}/texts/sample`, methodToHandler(controller3.put, [hooks0], {}, [], [], false, createError))
-  /* prettier-ignore */ router.get(`${basePath}/users`, methodToHandler(controller4.get, [hooks0, hooks1, ctrlHooks4], {}, [], [], false, createError))
-  /* prettier-ignore */ router.post(`${basePath}/users`, methodToHandler(controller4.post, [hooks0, hooks1, ctrlHooks4], { body: zUserInfo }, [], [], false, createError))
-  /* prettier-ignore */ router.get(`${basePath}/users/:userId`, methodToHandler(controller5.get, [hooks0, hooks1], {}, ['userId'], [], false, createError))
+  /* prettier-ignore */ router.get(bp || '/', m2h(c0.get, [h0, ch0], { query: zQuery }, [], [['id', 's', false, false], ['disable', 's', false, false]], true, ce, nrw))
+  /* prettier-ignore */ router.post(bp || '/', m2h(c0.post, [h0, ch0], { query: zQuery, body: zBody }, [], [['id', 's', false, false], ['disable', 's', false, false]], false, ce, nrw))
+  /* prettier-ignore */ router.get(`${bp}/empty/noEmpty`, m2h(c1.get, [h0], {}, [], [], false, ce, nrw))
+  /* prettier-ignore */ router.get(`${bp}/texts`, m2h(c2.get, [h0], {}, [], [['val', 's', false, false]], false, ce, nrw))
+  /* prettier-ignore */ router.put(`${bp}/texts`, m2h(c2.put, [h0], {}, [], [], false, ce, nrw))
+  /* prettier-ignore */ router.put(`${bp}/texts/sample`, m2h(c3.put, [h0], {}, [], [], false, ce, nrw))
+  /* prettier-ignore */ router.get(`${bp}/users`, m2h(c4.get, [h0, h1, ch4], {}, [], [], false, ce, nrw))
+  /* prettier-ignore */ router.post(`${bp}/users`, m2h(c4.post, [h0, h1, ch4], { body: zUserInfo }, [], [], false, ce, nrw))
+  /* prettier-ignore */ router.get(`${bp}/users/:userId`, m2h(c5.get, [h0, h1], {}, ['userId'], [], false, ce, nrw))
 
   return router
 }
